@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI / 新窗口的工程说明
 
 > **本文件是打开本仓库时的第一入口。**  
-> 文档索引：[docs/README.md](./docs/README.md) · 人类上手：[README.md](./README.md) · **项目笔记**：[docs/PROJECT-HISTORY.md](./docs/PROJECT-HISTORY.md)（最新 §13）
+> 文档索引：[docs/README.md](./docs/README.md) · 人类上手：[README.md](./README.md) · **项目笔记**：[docs/PROJECT-HISTORY.md](./docs/PROJECT-HISTORY.md)（最新 **§17**）
 
 ## 一句话
 
@@ -14,10 +14,11 @@
 |------|------|
 | 1 | 本文件 + [docs/README.md](./docs/README.md) |
 | 2 手感/消行/震动/死亡/布局 | [docs/FEEL-DESIGN.md](./docs/FEEL-DESIGN.md) |
-| 2b **投影** | **[docs/GHOST-DESIGN.md](./docs/GHOST-DESIGN.md)**（跟本体 · 卡边 1.3 · 斜向过滤） |
+| 2b **投影** | **[docs/GHOST-DESIGN.md](./docs/GHOST-DESIGN.md)**（8 向 · L_open 0.5 / L_block 1.0 / L_board 1.3 · 斜向中间态） |
 | 3 发块 | **[docs/DEAL-PUSH-COMPLETE.md](./docs/DEAL-PUSH-COMPLETE.md)**（SSOT；[DEAL-DESIGN](./docs/DEAL-DESIGN.md) 仅摘要） |
-| 4 踩坑 / 项目笔记 | [docs/PROJECT-HISTORY.md](./docs/PROJECT-HISTORY.md)（最新 **§14** 池化·投影） |
+| 4 踩坑 / 项目笔记 | [docs/PROJECT-HISTORY.md](./docs/PROJECT-HISTORY.md)（最新 **§16–§17**） |
 | 5 底座 | [docs/ENGINEERING.md](./docs/ENGINEERING.md) · [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) |
+| 6 常量摘要 | [docs/RUNTIME-DEFAULTS.md](./docs/RUNTIME-DEFAULTS.md)（**以 `defaults.js` 为准**） |
 
 **常量真源**：`src/game/defaults.js`（不要只信 RUNTIME-DEFAULTS 摘录）。
 
@@ -26,8 +27,9 @@
 | 职责 | 文件 |
 |------|------|
 | Web 启动 | `index.html` → `src/main.js` → `installTouchHygiene` → `createGame` |
-| 规则编排 | `src/game/game.js`（clearFx · deathFx · game-over） |
+| 规则编排 | `src/game/game.js`（clearFx · deathFx · game-over · **连拿 / exact clear / placeSnap**） |
 | 手感 | `src/game/feel/*` · `feel-presets.js` · `feel-panel.js` |
+| 投影决策 | `src/game/feel/ghost-policy.js`（view 只画） |
 | 渲染 / FX | `src/game/view.js` · `block-mesh.js` · `layout.js` |
 | 发块 | `src/game/deal/*`（`pipeline.js`） |
 | 常量 / 调参 | `defaults.js` · `tune.js` |
@@ -60,7 +62,9 @@ npm run ios:bootstrap
 6. 改布局尺寸：同步 `viewport.js` DESIGN_* 与 CSS 393/852（若仍用设计框）。  
 7. 圆角几何：**共享** BufferGeometry（`sharedTemplate` 勿 dispose）；filled/ghost/debris 走对象池；tray 扁影材质每帧新建以保证半透明。  
 8. **仅主指针拖块**（`isPrimary`）；禁系统双指缩放 / 双击放大 / 长按菜单。  
-9. 文档：改手感/消行/死亡/震动/布局 UI → **FEEL-DESIGN** + **PROJECT-HISTORY**；改投影 → **GHOST-DESIGN** + HISTORY；改发块 → **DEAL-PUSH-COMPLETE**；入口 DOM → **ENTRYPOINTS**。
+9. **投影**：8 向 leave；**空地 L_open=0.5**、**盘内贴块 L_block=1.0**、**棋盘外沿 L_board=1.3**；斜向可先单轴一格；失败钉住；`MAX_LAG` 灭影。改行为先 **GHOST-DESIGN** 再 `ghost-policy.js`。  
+10. **合法放下不锁输入**；消行中可再拖再放；`grid.clearExactCells` 只清本波格表（避免后放被前波消除误清）。  
+11. 文档：改手感/消行/死亡/震动/布局 UI → **FEEL-DESIGN** + **PROJECT-HISTORY**；改投影 → **GHOST-DESIGN** + HISTORY；改发块 → **DEAL-PUSH-COMPLETE**；入口 DOM → **ENTRYPOINTS**；defaults 改后同步 **RUNTIME-DEFAULTS** 摘要行。
 
 ## DOM
 
@@ -79,8 +83,8 @@ npm run ios:bootstrap
 
 ## 新会话建议
 
-1. 读本文件 + `docs/README.md` + **PROJECT-HISTORY §13**  
-2. 动手感/布局读 `FEEL-DESIGN.md`；动发块读 **`DEAL-PUSH-COMPLETE.md`**  
+1. 读本文件 + `docs/README.md` + **PROJECT-HISTORY §16–§17**  
+2. 动投影读 **`GHOST-DESIGN.md`**；动手感/布局读 `FEEL-DESIGN.md`；动发块读 **`DEAL-PUSH-COMPLETE.md`**  
 3. `npm run dev` 或 `cap:sync` 真机  
 4. 默认手感槽 = **手感1**（= defaults）  
 

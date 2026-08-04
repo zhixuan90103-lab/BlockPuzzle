@@ -173,6 +173,17 @@ export function createGrid() {
     }
   }
 
+  /**
+   * @param {(number|null)[][]} next
+   */
+  function load(next) {
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        cells[r][c] = next?.[r]?.[c] ?? null;
+      }
+    }
+  }
+
   /** 深拷贝只读快照 */
   function snapshot() {
     return cells.map((row) => row.slice());
@@ -189,6 +200,7 @@ export function createGrid() {
     isEmpty,
     canPlaceAnywhere,
     reset,
+    load,
     snapshot,
   };
 }

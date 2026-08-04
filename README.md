@@ -14,9 +14,11 @@
 | **[AGENTS.md](./AGENTS.md)** | AI / 新窗口 | 一页纸：入口、约定 |
 | **[docs/README.md](./docs/README.md)** | 所有人 | **文档索引与规范** |
 | **[docs/FEEL-DESIGN.md](./docs/FEEL-DESIGN.md)** | 改手感/消行/震动/死亡 | 问题→规则、预设（P1–P24） |
-| **[docs/PROJECT-HISTORY.md](./docs/PROJECT-HISTORY.md)** | 查踩坑 | 里程碑与问题全表（§12 最新） |
+| **[docs/GHOST-DESIGN.md](./docs/GHOST-DESIGN.md)** | 改投影 | **投影行为 SSOT**（8 向 · 0.5/1.0/1.3） |
+| **[docs/PROJECT-HISTORY.md](./docs/PROJECT-HISTORY.md)** | 查踩坑 | 里程碑与问题全表（最新 **§17**） |
 | **[docs/DEAL-PUSH-COMPLETE.md](./docs/DEAL-PUSH-COMPLETE.md)** | 改发块 | **完整规格 SSOT** |
 | **[docs/DEAL-DESIGN.md](./docs/DEAL-DESIGN.md)** | 发块速览 | 短摘要（指向 SSOT） |
+| **[docs/RUNTIME-DEFAULTS.md](./docs/RUNTIME-DEFAULTS.md)** | 查出厂常量 | defaults 摘要（以代码为准） |
 | **[docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md)** | 查启动链 | 命令 / DOM / iOS |
 | **[docs/ENGINEERING.md](./docs/ENGINEERING.md)** | 维护底座 | Capacitor / WebGPU |
 | **本 README** | 人类上手 | 安装、dev、真机 |
@@ -74,8 +76,9 @@ DOM 约定（勿拆）：
 
 | 域 | 要点 |
 |----|------|
-| 操作 | 槽固定拿起、指速增益、快/慢双模 ghost、仅合法投影；仅主指针 |
-| 消行 | 空槽常驻、方向缩转、debris、屏震按行数 |
+| 操作 | 槽固定拿起、指速增益、仅合法投影；**放下可连拿**；消行中可再放 |
+| 投影 | 8 向 leave：空地 0.5 / 盘内贴块 1.0 / 棋盘外沿 1.3；斜向可先单轴 |
+| 消行 | 空槽常驻、方向缩转、debris、屏震；`clearExactCells` 只清本波 |
 | 震动 | 换格 / 将消预览 / 消除 **3 波 T–C**（仅 iOS 原生） |
 | 死亡 | 闪红×2 → 自下填 → 停顿 → 自上揭 → 全屏 GO |
 | 发块 | 阶段 + 局面 Intent（见 DEAL-PUSH-COMPLETE） |

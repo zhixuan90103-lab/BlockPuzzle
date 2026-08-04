@@ -1035,6 +1035,7 @@ export function createBoardView(scene) {
       hover,
       clearFx = null,
       cellOpacity = null,
+      trayScrollX = 0,
       nowMs = performance.now(),
     } = state;
     if (!layout || layout.cell < 2) {
@@ -1123,10 +1124,12 @@ export function createBoardView(scene) {
       if (!piece || i === dragTrayIndex) continue;
       const slot = layout.tray.slots[i];
       if (!slot) continue;
+      if (slot.x - trayScrollX > layout.tray.x + layout.tray.w + slot.w) continue;
+      if (slot.x - trayScrollX + slot.w < layout.tray.x - slot.w) continue;
       const { rows, cols } = matrixSize(piece.matrix);
       const tw = cols * trayCell;
       const th = rows * trayCell;
-      const ox = slot.cx - tw / 2;
+      const ox = slot.cx - trayScrollX - tw / 2;
       const oy = slot.cy - th / 2;
       addTrayPieceShadow(
         piece.matrix,

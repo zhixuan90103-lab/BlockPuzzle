@@ -1,10 +1,12 @@
-# 发块推送 · 现行行为（重构后）
+# 发块推送 · 现行行为
 
-**状态：** v3.1 · 2026-07-30（**局面助清** + **payoff 优先**；默认关闭按轮数打卡）  
-**入口：** `deal/pipeline.js` → `generateTray`  
-**数值：** `defaults.js`  
-**完整规格 SSOT：** [DEAL-PUSH-COMPLETE.md](./DEAL-PUSH-COMPLETE.md)  
-**重构设计：** [DEAL-REFACTOR-DESIGN.md](./DEAL-REFACTOR-DESIGN.md) · 调研 [research/CLEAR-PLAYER-RESEARCH.md](../../research/CLEAR-PLAYER-RESEARCH.md)
+**状态：** **v4 新节奏 · 2026-08-03**  
+**SSOT：** [DEAL-RHYTHM-V2.md](./DEAL-RHYTHM-V2.md)  
+**入口：** `deal/pipeline.js` → `generateTray` · 采样 `deal/rhythm.js`  
+**难度：** 设置「简单/中等/困难」→ instant 3/2/1（`deal/difficulty.js`）  
+**形状：** 贴合空格 + 摆后整齐  
+
+> 以下 v3.1 助清/payoff 链已退出主路径，仅作历史对照。模块文件可能仍在仓库中。
 
 ---
 

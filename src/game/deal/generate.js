@@ -1,7 +1,7 @@
 /**
- * 发块入口（薄封装）— 实现见 pipeline.js
+ * 发块入口（薄封装）— 实现见 pipeline.js / rhythm.js
  *
- * 管线意图：续推清屏 → beat全清/助清 → payoff大消 → 空腔 → 主采样 → fallback
+ * 新节奏：人控难度(instant) + 贴空/整齐形状
  */
 export {
   anyTrayPieceFits,

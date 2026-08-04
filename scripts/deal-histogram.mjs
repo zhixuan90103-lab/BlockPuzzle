@@ -13,6 +13,10 @@ import {
   lastDealMeta,
   resetDealState,
 } from '../src/game/deal/generate.js';
+import {
+  getDealDifficulty,
+  setDealDifficulty,
+} from '../src/game/deal/difficulty.js';
 import { countCells } from '../src/game/forms.js';
 import { shapeClassOf } from '../src/game/deal/shape-class.js';
 import { roleOfFamily } from '../src/game/deal/bag.js';
@@ -21,6 +25,11 @@ import { countInstantFits } from '../src/game/deal/board-ops.js';
 const args = process.argv.slice(2);
 const nIdx = args.indexOf('--n');
 const N = nIdx >= 0 ? Math.max(5, Number(args[nIdx + 1]) || 30) : 30;
+const dIdx = args.indexOf('--diff');
+const DIFF =
+  dIdx >= 0 && ['easy', 'medium', 'hard'].includes(args[dIdx + 1])
+    ? args[dIdx + 1]
+    : 'easy';
 
 function makeGrid(cells) {
   return {
@@ -84,6 +93,7 @@ const SCORE_BY_SCENARIO = {
 
 function runScenario(name, boardFactory, score = 0) {
   resetDealState();
+  setDealDifficulty(DIFF, { persist: false });
   const modes = {};
   const phases = {};
   const boardClasses = {};
@@ -92,6 +102,7 @@ function runScenario(name, boardFactory, score = 0) {
   let totalPieces = 0;
   let sumAvgCells = 0;
   let sumInstant = 0;
+  let sumSoft = 0;
   const cellHist = {};
   const roleHist = {};
   const classHist = {};
@@ -104,10 +115,11 @@ function runScenario(name, boardFactory, score = 0) {
     const meta = lastDealMeta;
 
     modes[meta.mode] = (modes[meta.mode] || 0) + 1;
-    phases[meta.phase] = (phases[meta.phase] || 0) + 1;
+    phases[meta.difficulty || meta.phase] = (phases[meta.difficulty || meta.phase] || 0) + 1;
     const bc = meta.boardClass || '?';
     boardClasses[bc] = (boardClasses[bc] || 0) + 1;
     sumInstant += meta.instant ?? countInstantFits(cells, tray);
+    if (meta.soft) sumSoft += 1;
 
     const av =
       tray.reduce((s, p) => s + countCells(p.matrix), 0) / Math.max(1, tray.length);
@@ -147,6 +159,7 @@ function runScenario(name, boardFactory, score = 0) {
     tiny3Rate,
     avgCells,
     avgInstant,
+    softRate: sumSoft / N,
     assistRate,
     cellHist,
     roleHist,
@@ -155,25 +168,23 @@ function runScenario(name, boardFactory, score = 0) {
   };
 }
 
-/** 门槛（与 DEAL-SPEC 验收对齐，宽松一点做 CI） */
+/** 门槛（节奏 v2：默认 easy；读盘形状 + 微块禁） */
 function checkGates(r) {
   /** @type {string[]} */
   const fails = [];
   if (r.name === 'empty') {
     if (r.microRate > 0.02) fails.push(`empty microRate ${r.microRate.toFixed(3)} > 0.02`);
-    if (r.avgCells < 4.2) fails.push(`empty avgCells ${r.avgCells.toFixed(2)} < 4.2`);
-    if (r.tiny3Rate > 0.35) fails.push(`empty tiny3Rate ${r.tiny3Rate.toFixed(3)} > 0.35`);
+    if (r.avgCells < 3.8) fails.push(`empty avgCells ${r.avgCells.toFixed(2)} < 3.8`);
   }
   if (r.name === 'half') {
     if (r.microRate > 0.05) fails.push(`half microRate ${r.microRate.toFixed(3)} > 0.05`);
-    if (r.avgCells < 3.6) fails.push(`half avgCells ${r.avgCells.toFixed(2)} < 3.6`);
+    if (r.avgCells < 3.2) fails.push(`half avgCells ${r.avgCells.toFixed(2)} < 3.2`);
   }
   if (r.name === 'late') {
-    if (r.microRate > 0.12) fails.push(`late microRate ${r.microRate.toFixed(3)} > 0.12`);
-    // late instant 允许 1–2 均值大致在此
-    // late 主路径 instant≤2；含 assist 时均值可略高
-    if (r.avgInstant < 0.8 || r.avgInstant > 2.85) {
-      fails.push(`late avgInstant ${r.avgInstant.toFixed(2)} not in [0.8,2.85]`);
+    if (r.microRate > 0.15) fails.push(`late microRate ${r.microRate.toFixed(3)} > 0.15`);
+    // 人控难度：easy→≈3，hard→≈1；只保证至少有可放
+    if (r.avgInstant < 0.8) {
+      fails.push(`late avgInstant ${r.avgInstant.toFixed(2)} < 0.8`);
     }
   }
   return fails;
@@ -182,10 +193,10 @@ function checkGates(r) {
 function printReport(r) {
   console.log(`\n=== ${r.name} (n=${r.N}) score=${SCORE_BY_SCENARIO[r.name] ?? 0} ===`);
   console.log(
-    `avgCells=${r.avgCells.toFixed(2)}  micro≤2=${(r.microRate * 100).toFixed(1)}%  ≤3=${(r.tiny3Rate * 100).toFixed(1)}%  avgInstant=${r.avgInstant.toFixed(2)}  clear/assist=${(r.assistRate * 100).toFixed(0)}%`,
+    `avgCells=${r.avgCells.toFixed(2)}  micro≤2=${(r.microRate * 100).toFixed(1)}%  ≤3=${(r.tiny3Rate * 100).toFixed(1)}%  avgInstant=${r.avgInstant.toFixed(2)}  soft=${((r.softRate || 0) * 100).toFixed(0)}%`,
   );
   console.log('modes:', fmtHist(r.modes));
-  console.log('phases:', fmtHist(r.phases));
+  console.log('diff:', fmtHist(r.phases));
   console.log('boardClass:', fmtHist(r.boardClasses));
   console.log('cells:', fmtHist(r.cellHist));
   console.log('roles:', fmtHist(r.roleHist));
@@ -206,7 +217,7 @@ const scenarios = [
   { name: 'sparse', fn: boardSparseClearable },
 ];
 
-console.log(`deal-histogram · N=${N} per scenario`);
+console.log(`deal-histogram · N=${N} per scenario · diff=${DIFF}`);
 /** @type {string[]} */
 let allFails = [];
 for (const s of scenarios) {

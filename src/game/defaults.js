@@ -4,7 +4,7 @@
 
 // —— 规则 ——
 export const GRID = 8;
-export const TRAY_SIZE = 3;
+export const TRAY_SIZE = 8;
 export const ROTATE = false;
 export const GRAVITY = false;
 

@@ -53,8 +53,9 @@ export function computeLayout(frame, safe) {
 
   const trayX = padL;
   const trayW = usableW;
-  // 水平：三等分；垂直：高度随滑条，中心位置固定
-  const colW = usableW / TRAY_SIZE;
+  // 水平：候选条一屏约 4 个；TRAY_SIZE 可大于可见数量，通过 scrollX 横向浏览。
+  const visibleTraySlots = Math.min(4, TRAY_SIZE);
+  const colW = usableW / visibleTraySlots;
   const zoneW = colW;
   /** 视觉/点击高度（滑条） */
   const bandCells = Math.max(0.8, t.LAYOUT_TRAY_BAND_CELLS);

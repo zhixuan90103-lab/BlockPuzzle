@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="format-detection" content="telephone=no" />
-    <title>Block Blast</title>
+    <title>Puzzle Clear</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -20,11 +20,21 @@
         <div id="hud">
           <header class="game-header">
             <div class="score-center">
-              <div class="main-score" data-game-score aria-label="score">0</div>
+              <div class="main-score" data-game-score aria-label="puzzle level">1</div>
             </div>
             <p id="status" class="status status-debug" hidden></p>
             <p class="phase" data-game-phase hidden>M2</p>
           </header>
+        </div>
+
+        <div class="level-editor" data-level-editor hidden>
+          <div class="level-editor-title">Editor</div>
+          <div class="level-editor-actions">
+            <button type="button" data-editor-copy>Copy Mask</button>
+            <button type="button" data-editor-clear>Clear</button>
+            <button type="button" data-editor-fill>Fill</button>
+          </div>
+          <textarea data-editor-mask spellcheck="false" readonly></textarea>
         </div>
 
         <!-- 死亡开场闪红（盖住盘面，不挡结算） -->
@@ -34,13 +44,13 @@
         <div class="game-over" data-game-over hidden aria-hidden="true">
           <div class="game-over-inner">
             <div class="game-over-copy">
-              <p class="game-over-title">Game Over</p>
-              <p class="game-over-score-label">Score</p>
+              <p class="game-over-title">Puzzle Clear</p>
+              <p class="game-over-score-label">Level</p>
               <p class="game-over-score">
                 <span data-final-score>0</span>
               </p>
             </div>
-            <button type="button" class="restart-btn" data-restart>Play Again</button>
+            <button type="button" class="restart-btn" data-restart>Restart</button>
           </div>
         </div>
       </div>

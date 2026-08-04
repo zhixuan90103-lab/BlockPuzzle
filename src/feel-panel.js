@@ -9,6 +9,13 @@ import {
   setActiveFeelPresetId,
 } from './game/feel-presets.js';
 import {
+  DEAL_DIFFICULTIES,
+  DEAL_DIFFICULTY_META,
+  getDealDifficulty,
+  onDealDifficultyChange,
+  setDealDifficulty,
+} from './game/deal/difficulty.js';
+import {
   getTune,
   needsLayoutRelayout,
   onTuneChange,
@@ -19,7 +26,7 @@ import {
 /**
  * @param {{
  *   mount?: HTMLElement,
- *   onChange?: (info: { key?: string, value?: number, needsLayout: boolean, reset?: boolean, preset?: string }) => void,
+ *   onChange?: (info: { key?: string, value?: number, needsLayout: boolean, reset?: boolean, preset?: string, difficulty?: string }) => void,
  * }} opts
  */
 export function createFeelPanel(opts = {}) {
@@ -96,6 +103,37 @@ export function createFeelPanel(opts = {}) {
   presetHint.className = 'feel-preset-hint';
   presetHint.textContent = '长按「手感」可保存当前参数到该槽';
   presetBar.append(presetRow, presetHint);
+
+  /** 面板内：推送难度（简单 / 中等 / 困难） */
+  const diffBar = document.createElement('div');
+  diffBar.className = 'feel-preset-bar feel-diff-bar';
+  diffBar.setAttribute('aria-label', '推送难度');
+
+  const diffLabel = document.createElement('div');
+  diffLabel.className = 'feel-preset-label';
+  diffLabel.textContent = '推送难度';
+  diffBar.appendChild(diffLabel);
+
+  const diffRow = document.createElement('div');
+  diffRow.className = 'feel-preset-row';
+
+  /** @type {Map<import('./game/deal/difficulty.js').DealDifficulty, HTMLButtonElement>} */
+  const diffBtns = new Map();
+  for (const id of DEAL_DIFFICULTIES) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'feel-preset-btn feel-diff-btn';
+    btn.dataset.difficulty = id;
+    btn.textContent = DEAL_DIFFICULTY_META[id].label;
+    btn.title = `目标：${DEAL_DIFFICULTY_META[id].instant} 块当前可放 · 下一盘 tray 生效`;
+    btn.setAttribute('aria-pressed', 'false');
+    diffBtns.set(id, btn);
+    diffRow.appendChild(btn);
+  }
+  const diffHint = document.createElement('p');
+  diffHint.className = 'feel-preset-hint';
+  diffHint.textContent = '简单=3可放 · 中等=2可放 · 困难=1可放（随时切换，下盘生效）';
+  diffBar.append(diffRow, diffHint);
 
   const body = document.createElement('div');
   body.className = 'feel-panel-body';
@@ -180,7 +218,8 @@ export function createFeelPanel(opts = {}) {
     body.appendChild(sec);
   }
 
-  sheet.append(head, presetBar, body);
+  // 推送难度放最上方，避免被手感/滑条挤到视线外
+  sheet.append(head, diffBar, presetBar, body);
   root.append(fab, scrim, sheet);
   mount.appendChild(root);
 
@@ -203,6 +242,37 @@ export function createFeelPanel(opts = {}) {
       const on = pid === id;
       btn.classList.toggle('is-active', on);
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  /**
+   * @param {import('./game/deal/difficulty.js').DealDifficulty} id
+   */
+  function highlightDifficulty(id) {
+    for (const [did, btn] of diffBtns) {
+      const on = did === id;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  /**
+   * @param {import('./game/deal/difficulty.js').DealDifficulty} id
+   */
+  function switchDifficulty(id) {
+    setDealDifficulty(id);
+    highlightDifficulty(id);
+    onChange({ needsLayout: false, difficulty: id });
+  }
+
+  for (const [id, btn] of diffBtns) {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      switchDifficulty(id);
+    });
+    for (const ev of ['pointerdown', 'touchstart']) {
+      btn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
     }
   }
 
@@ -318,13 +388,17 @@ export function createFeelPanel(opts = {}) {
   sheet.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
   presetBar.addEventListener('pointerdown', (e) => e.stopPropagation());
   presetBar.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+  diffBar.addEventListener('pointerdown', (e) => e.stopPropagation());
+  diffBar.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
   fab.addEventListener('pointerdown', (e) => e.stopPropagation());
   fab.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
   const unsub = onTuneChange(() => {
     if (!suppressSync) syncFromTune();
   });
+  const unsubDiff = onDealDifficultyChange((d) => highlightDifficulty(d));
   syncFromTune();
+  highlightDifficulty(getDealDifficulty());
   setOpen(false);
 
   // 启动：默认手感1；若上次选过手感2则恢复
@@ -336,8 +410,10 @@ export function createFeelPanel(opts = {}) {
     close: () => setOpen(false),
     sync: syncFromTune,
     switchPreset,
+    switchDifficulty,
     dispose() {
       unsub();
+      unsubDiff();
       root.remove();
     },
   };

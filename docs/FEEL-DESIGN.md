@@ -2,7 +2,7 @@
 
 迭代踩坑沉淀。实现：`src/game/feel/*` · `view.js` · `layout.js` · `feel-presets.js` · `game.js`（clearFx / deathFx）。  
 常量真源：`defaults.js`；运行时覆盖：`tune.js` + **右上角设置面板**（`feel-panel.js`）。  
-全景纪要（项目笔记）：[PROJECT-HISTORY.md](./PROJECT-HISTORY.md)（§13 设置/触控/摆放区）· 索引：[README.md](./README.md)。
+全景纪要（项目笔记）：[PROJECT-HISTORY.md](./PROJECT-HISTORY.md)（最新 **§16–§17**；§13 设置/触控/摆放区）· 索引：[README.md](./README.md)。
 
 ---
 
@@ -175,7 +175,7 @@ UI：**右上角设置齿轮** → 底部 sheet 内含手感1/2 + 全部滑条�
 |--|--------|--------|
 | **MODE** | **0 速度** | **1 固定倍率** |
 | 公式 | gain = smoothstep(指速/SPEED_REF) 在 MIN↔MAX | **gain = K 恒定** |
-| GAIN | MIN **1.0** · MAX **1.35** · SPEED_REF **6** | **K = 1.6** |
+| GAIN | MIN **1.0** · MAX **1.4** · SPEED_REF **6** | **K = 1.6** |
 | 抬升 | MIN **-2.5** · MAX **-4.0** · travel **4.5** · power **1.75** | MIN=MAX **-2.0** · travel **1** · power **1** |
 | 平滑 | SMOOTH **0.012** · GAIN_SMOOTH **0.018** | SMOOTH **0.012** · GAIN_SMOOTH **0** |
 | 主调参 | MIN / MAX / SPEED_REF / 抬升 | **GAIN_K** / 抬升 |
@@ -272,7 +272,7 @@ flash  →  fill  →  pause  →  reveal  →  game-over visible
 ## 10. 投影（Ghost）— 设计摘要
 
 > **SSOT**：[GHOST-DESIGN.md](./GHOST-DESIGN.md)（§一 Bug→设计 · §四流水线 · 验收）  
-> **演进笔记**：[PROJECT-HISTORY.md](./PROJECT-HISTORY.md) §16  
+> **演进笔记**：[PROJECT-HISTORY.md](./PROJECT-HISTORY.md) **§16–§17**  
 > 实现：`ghost-policy.js` · `drag-session.js` · `view.js`
 
 ### 方法一句话
@@ -287,6 +287,7 @@ flash  →  fill  →  pause  →  reveal  →  game-over visible
 | 斜向双轴门闩 → 影落后 | 方案 1：可先横/竖 |
 | 时间锁防闪 | 施密特 H（不闪优先） |
 | 失败 freeSnap | 只钉住 / MAX_LAG 灭影 |
+| 卡边单一阈值 | **L_block / L_board** 分角色 |
 
 ### 出厂（摘录）
 
@@ -298,7 +299,7 @@ flash  →  fill  →  pause  →  reveal  →  game-over visible
 | L_board | EDGE_HOLD | 1.3 棋盘外沿 |
 | MAX_LAG | MAX_LAG | 1.45 |
 
-落点投影 ≠ tray 扁影。池化见 HISTORY §14。
+落点投影 ≠ tray 扁影。池化见 HISTORY §14。连拿 / exact clear / placeSnap 见 HISTORY **§17**。
 
 ---
 
@@ -321,16 +322,16 @@ flash  →  fill  →  pause  →  reveal  →  game-over visible
 | 区外框样式 | `SHOW_TRAY_ZONES`（默认 **关**；开则圆角槽可视化） |
 | 块大小 | `FEEL_TRAY_SCALE`（与区高独立） |
 
-### 投影调参（详见 GHOST-DESIGN §5）
+### 投影调参（详见 GHOST-DESIGN §5 · 面板 `tune.js`）
 
 | 滑条 | 调什么 |
 |------|--------|
-| 开阔换格阈值 | 开阔跟本体（约半格） |
-| **换格滞回(防抖)** | 居中防闪 |
-| 边缘粘滞 | 卡边需拖多远（出厂 1.3） |
-| 影-块最大距离 | 允许多远还显示影（须 > 边缘粘滞） |
-| 斜向意图比例 | 多大算斜拖 |
-| 斜向次轴门槛 | 斜拖压住单轴中间影的次轴分量 |
+| 开阔换格(基础) | L_open：空地约半格 |
+| **换格滞回(基础)** | H_open：居中防闪 |
+| **盘内贴块粘滞** | L_block：盘内被块堵住（出厂 **1.0**） |
+| **棋盘外沿粘滞** | L_board：一步会出界（出厂 **1.3**） |
+| 影-块最大距离 | MAX_LAG：允许多远还显示影（须 **> L_board**） |
+| 斜向意图比例 | 多大算斜拖（DIAG_RATIO） |
 
 ### 加大「操作幅度」优先项
 

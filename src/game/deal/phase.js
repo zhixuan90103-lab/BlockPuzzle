@@ -5,23 +5,18 @@
  * - 各族权重倍率（α：对齐角色目标，压 early 3×3、降 mid 碎块过重）
  */
 import {
-  DEAL_EARLY_INSTANT_MAX,
-  DEAL_EARLY_INSTANT_MIN,
   DEAL_EARLY_NEAT_MUL,
   DEAL_LATE_AWKWARD_MUL,
-  DEAL_LATE_INSTANT_MAX,
-  DEAL_LATE_INSTANT_MIN,
   DEAL_LATE_RELAX_EARLY,
   DEAL_LATE_RELAX_MID,
   DEAL_MID_BIG_DAMP,
-  DEAL_MID_INSTANT_MAX,
-  DEAL_MID_INSTANT_MIN,
   DEAL_MID_RELAX_EARLY,
   DEAL_MID_SCRAP_MUL,
   DEAL_SCORE_EARLY_MAX,
   DEAL_SCORE_MID_MAX,
 } from '../defaults.js';
 import { getTune } from '../tune.js';
+import { instantRangeForDifficulty } from './difficulty.js';
 
 /** @typedef {'early' | 'mid' | 'late'} DealPhase */
 
@@ -69,26 +64,13 @@ export function rollDealPhase(base, rng = Math.random, t = getTune()) {
 }
 
 /**
- * @param {DealPhase} phase
+ * 主路径 instant 窗：由设置里的「简单/中等/困难」人控（不再跟 phase 绑）。
+ * phase / tune 参数保留以兼容旧调用签名。
+ * @param {DealPhase} [_phase]
  * @returns {{ min: number, max: number }}
  */
-export function instantRangeForPhase(phase, t = getTune()) {
-  if (phase === 'early') {
-    return {
-      min: ri(t.DEAL_EARLY_INSTANT_MIN, DEAL_EARLY_INSTANT_MIN),
-      max: ri(t.DEAL_EARLY_INSTANT_MAX, DEAL_EARLY_INSTANT_MAX),
-    };
-  }
-  if (phase === 'mid') {
-    return {
-      min: ri(t.DEAL_MID_INSTANT_MIN, DEAL_MID_INSTANT_MIN),
-      max: ri(t.DEAL_MID_INSTANT_MAX, DEAL_MID_INSTANT_MAX),
-    };
-  }
-  return {
-    min: ri(t.DEAL_LATE_INSTANT_MIN, DEAL_LATE_INSTANT_MIN),
-    max: ri(t.DEAL_LATE_INSTANT_MAX, DEAL_LATE_INSTANT_MAX),
-  };
+export function instantRangeForPhase(_phase, _t = getTune()) {
+  return instantRangeForDifficulty();
 }
 
 /**
@@ -163,8 +145,4 @@ export function isScrapFamily(family) {
 
 function num(v, fb) {
   return Number.isFinite(v) ? Number(v) : fb;
-}
-
-function ri(v, fb) {
-  return Math.round(num(v, fb));
 }

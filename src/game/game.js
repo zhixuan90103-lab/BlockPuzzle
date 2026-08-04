@@ -24,6 +24,7 @@ import {
   GRID,
   PIECE_PALETTE,
   SHOW_DEBUG_STATUS,
+  TRAY_SIZE,
 } from './defaults.js';
 import {
   chaseTargetOnPointer,
@@ -39,9 +40,9 @@ import { computeLayout } from './layout.js';
 import {
   anyTrayPieceFits,
   clearPendingDealPlan,
-  generateTray,
   lastDealMeta,
 } from './pieces.js';
+import { createPuzzle } from './puzzle/generator.js';
 import { createScoreState } from './score.js';
 import { getTune } from './tune.js';
 import { createBoardView } from './view.js';
@@ -77,9 +78,22 @@ export function createGame(opts) {
   const boardView = createBoardView(scene);
   const grid = createGrid();
   const scoreState = createScoreState();
+  const searchParams = new URLSearchParams(window.location.search);
+  const editorMode = searchParams.has('editor');
+  const requestedLevel = Math.max(1, Number(searchParams.get('level') || 1) || 1);
+  const editorLevel = requestedLevel;
+  const initialPuzzleLevel = editorMode ? 1 : requestedLevel;
+  let puzzleLevel = 0;
+  let puzzle = null;
 
   /** @type {(import('./forms.js').PieceDef|null)[]} */
   let tray = [null, null, null];
+  let trayScrollX = 0;
+  /** @type {null | { pointerId: number, startFx: number, startFy: number, startScrollX: number, moved: boolean }} */
+  let trayScrollDrag = null;
+  /** @type {{ id: number, piece: import('./forms.js').PieceDef, trayIndex: number, originRow: number, originCol: number, cells: {row:number,col:number}[] }[]} */
+  let placedPieces = [];
+  let nextPlacedId = 1;
 
   /** @type {null | ReturnType<typeof createDragSession>} */
   let drag = null;
@@ -157,6 +171,11 @@ export function createGame(opts) {
   const deathFlashEl = overlayRoot.querySelector('[data-death-flash]');
   const finalScoreEl = overlayRoot.querySelector('[data-final-score]');
   const restartBtn = overlayRoot.querySelector('[data-restart]');
+  const editorEl = overlayRoot.querySelector('[data-level-editor]');
+  const editorMaskEl = overlayRoot.querySelector('[data-editor-mask]');
+  const editorCopyBtn = overlayRoot.querySelector('[data-editor-copy]');
+  const editorClearBtn = overlayRoot.querySelector('[data-editor-clear]');
+  const editorFillBtn = overlayRoot.querySelector('[data-editor-fill]');
 
   let bestScore = 0;
   try {
@@ -165,11 +184,24 @@ export function createGame(opts) {
     bestScore = 0;
   }
 
-  function fillTray() {
-    const next = generateTray(grid, { score: scoreState.score });
-    // 槽位布局仍为 3 列；E2 tray1 时仅填前 n 槽，其余 null
-    tray = next.slice(0, 3);
-    while (tray.length < 3) tray.push(null);
+  function startNextPuzzle() {
+    puzzleLevel += 1;
+    puzzle = createPuzzle(puzzleLevel);
+    grid.load(puzzle.board);
+    tray = puzzle.tray.slice(0, TRAY_SIZE);
+    while (tray.length < TRAY_SIZE) tray.push(null);
+    trayScrollX = 0;
+    placedPieces = [];
+  }
+
+  function fillBoardForEditor() {
+    /** @type {(number|null)[][]} */
+    const board = [];
+    for (let r = 0; r < GRID; r++) {
+      board[r] = [];
+      for (let c = 0; c < GRID; c++) board[r][c] = 0x8fbf61;
+    }
+    grid.load(board);
   }
 
   function trayEmpty() {
@@ -431,10 +463,9 @@ export function createGame(opts) {
   }
 
   function checkGameOver() {
-    if (trayEmpty() || deathFx || gameOver) return;
-    if (!anyTrayPieceFits(grid, tray)) {
-      startDeathFx();
-    }
+    // Puzzle mode intentionally has no fail state in v1. A bad placement simply
+    // leaves the current puzzle incomplete.
+    void anyTrayPieceFits;
   }
 
   function restart() {
@@ -448,16 +479,19 @@ export function createGame(opts) {
     ghostHaptics.onClearFxEnd?.();
     boardView.clearAllDebris?.();
     grid.reset();
+    placedPieces = [];
+    nextPlacedId = 1;
     scoreState.reset();
     clearPendingDealPlan();
-    fillTray();
+    puzzleLevel = initialPuzzleLevel - 1;
+    startNextPuzzle();
     setGameOver(false);
     paint();
     updateStatus();
   }
 
   function syncHud() {
-    if (scoreEl) scoreEl.textContent = String(scoreState.score);
+    if (scoreEl) scoreEl.textContent = String(puzzleLevel || 1);
     if (bestEl) bestEl.textContent = String(Math.max(bestScore, scoreState.score));
     if (statusEl) statusEl.hidden = !SHOW_DEBUG_STATUS;
     if (phaseEl) phaseEl.hidden = !SHOW_DEBUG_STATUS;
@@ -501,6 +535,55 @@ export function createGame(opts) {
       }
     }
     return out;
+  }
+
+  function rotateMatrixCW(matrix) {
+    const rows = matrix.length;
+    const cols = matrix[0]?.length ?? 0;
+    const out = Array.from({ length: cols }, () => Array(rows).fill(0));
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) out[c][rows - 1 - r] = matrix[r][c];
+    }
+    return out;
+  }
+
+  function rotatePieceCW(piece) {
+    const matrix = rotateMatrixCW(piece.matrix);
+    const colorGrid = piece.cellColors || piece.matrix.map((row) => row.map((v) => (v ? piece.color : 0)));
+    return {
+      ...piece,
+      id: `${piece.id}_r${((piece.rotationTurns || 0) + 1) % 4}`,
+      matrix,
+      cellColors: rotateMatrixCW(colorGrid),
+      rotationTurns: ((piece.rotationTurns || 0) + 1) % 4,
+    };
+  }
+
+  function placedAtCell(row, col) {
+    for (let i = placedPieces.length - 1; i >= 0; i--) {
+      const placed = placedPieces[i];
+      if (placed.cells.some((cell) => cell.row === row && cell.col === col)) return placed;
+    }
+    return null;
+  }
+
+  function removePlacedPiece(placed) {
+    placedPieces = placedPieces.filter((p) => p.id !== placed.id);
+    for (const cell of placed.cells) {
+      if (cell.row >= 0 && cell.row < GRID && cell.col >= 0 && cell.col < GRID) {
+        grid.cells[cell.row][cell.col] = null;
+      }
+    }
+  }
+
+  function isInTrayBand(fx, fy) {
+    const trayBand = layout.tray;
+    return (
+      fx >= trayBand.x &&
+      fx <= trayBand.x + trayBand.w &&
+      fy >= trayBand.y - layout.cell * 0.5 &&
+      fy <= trayBand.y + trayBand.h + layout.cell * 0.8
+    );
   }
 
   function tickPlaceSnap() {
@@ -562,6 +645,7 @@ export function createGame(opts) {
       drag: dragPaint,
       hover: deathFx || placeSnap ? null : hover,
       clearFx: deathFx ? null : clearFx,
+      trayScrollX,
       nowMs,
     });
     syncHud();
@@ -664,6 +748,45 @@ export function createGame(opts) {
     };
   }
 
+  function isBoardFull() {
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        if (grid.cells[r][c] == null) return false;
+      }
+    }
+    return true;
+  }
+
+  function collectAllBoardCells() {
+    /** @type {{ row: number, col: number, color: number, delay01: number, spin: number }[]} */
+    const cells = [];
+    const center = (GRID - 1) / 2;
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        const color = grid.cells[r][c];
+        if (color == null) continue;
+        const dist = Math.abs(r - center) + Math.abs(c - center);
+        cells.push({
+          row: r,
+          col: c,
+          color,
+          delay01: Math.min(0.82, dist / (GRID + 2)),
+          spin: (r + c) % 2 === 0 ? 1 : -1,
+        });
+      }
+    }
+    cells.sort((a, b) => a.delay01 - b.delay01 || a.row - b.row || a.col - b.col);
+    return {
+      cells,
+      sweep: {
+        fromLeft: true,
+        fromTop: true,
+        epicRow: center,
+        epicCol: center,
+      },
+    };
+  }
+
   /**
    * @param {NonNullable<typeof clearFx>} payload
    */
@@ -690,10 +813,7 @@ export function createGame(opts) {
       linesCleared,
       boardEmpty: grid.isEmpty(),
     });
-    if (trayEmpty()) {
-      scoreState.onTrayRefill();
-      fillTray();
-    }
+    if (trayEmpty() && grid.isEmpty()) startNextPuzzle();
     checkGameOver();
 
     // 队列中的下一波（后落子独立消除，不与上波混格）
@@ -726,12 +846,67 @@ export function createGame(opts) {
     return { x: clientX - rect.left, y: clientY - rect.top };
   }
 
+  function cellFromFramePoint(fx, fy) {
+    const { grid: g, cell } = layout;
+    if (fx < g.x || fy < g.y || fx >= g.x + g.w || fy >= g.y + g.h) return null;
+    const col = Math.floor((fx - g.x) / cell);
+    const row = Math.floor((fy - g.y) / cell);
+    if (row < 0 || row >= GRID || col < 0 || col >= GRID) return null;
+    return { row, col };
+  }
+
+  function editorMaskText() {
+    return grid.cells
+      .map((row) => row.map((v) => (v == null ? '#' : '.')).join(''))
+      .join('\n');
+  }
+
+  function syncEditorPanel() {
+    if (!editorMode || !editorEl) return;
+    editorEl.hidden = false;
+    if (editorMaskEl) editorMaskEl.value = editorMaskText();
+  }
+
+  function setAllEditorCells(needed) {
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        grid.cells[r][c] = needed ? null : 0x8fbf61;
+      }
+    }
+    paint();
+    syncEditorPanel();
+  }
+
+  async function copyEditorMask() {
+    const text = editorMaskText();
+    if (editorMaskEl) {
+      editorMaskEl.value = text;
+      editorMaskEl.focus();
+      editorMaskEl.select();
+    }
+    try {
+      await navigator.clipboard?.writeText(text);
+    } catch {
+      document.execCommand?.('copy');
+    }
+  }
+
+  function clampTrayScroll(x) {
+    const slots = layout.tray.slots;
+    if (!slots?.length) return 0;
+    const last = slots[slots.length - 1];
+    const contentRight = last.x + last.w;
+    const max = Math.max(0, contentRight - (layout.tray.x + layout.tray.w));
+    return Math.min(max, Math.max(0, x));
+  }
+
   /** 正版：底栏三等分区优先，再回退块包围盒 */
   function hitTrayIndex(fx, fy) {
     for (const slot of layout.tray.slots) {
+      const sx = slot.x - trayScrollX;
       if (
-        fx >= slot.x &&
-        fx <= slot.x + slot.w &&
+        fx >= sx &&
+        fx <= sx + slot.w &&
         fy >= slot.y &&
         fy <= slot.y + slot.h &&
         tray[slot.index]
@@ -750,12 +925,13 @@ export function createGame(opts) {
       const { rows, cols } = matrixSize(piece.matrix);
       const tw = cols * tc;
       const th = rows * tc;
-      const left = slot.cx - tw / 2 - slop;
-      const right = slot.cx + tw / 2 + slop;
+      const cx = slot.cx - trayScrollX;
+      const left = cx - tw / 2 - slop;
+      const right = cx + tw / 2 + slop;
       const top = slot.cy - th / 2 - slop;
       const bottom = slot.cy + th / 2 + slop;
       if (fx >= left && fx <= right && fy >= top && fy <= bottom) {
-        const d = (fx - slot.cx) ** 2 + (fy - slot.cy) ** 2;
+        const d = (fx - cx) ** 2 + (fy - slot.cy) ** 2;
         if (d < bestDist) {
           bestDist = d;
           best = i;
@@ -806,39 +982,129 @@ export function createGame(opts) {
   function onPointerDown(e) {
     // 只响应主指针：忽略第二指 / 多指，避免双点触控搅局
     if (e.isPrimary === false) return;
+    if (editorMode) {
+      const { x: fx, y: fy } = framePointFromClient(e.clientX, e.clientY);
+      const cell = cellFromFramePoint(fx, fy);
+      if (!cell) return;
+      e.preventDefault();
+      const cur = grid.cells[cell.row][cell.col];
+      grid.cells[cell.row][cell.col] = cur == null ? 0x8fbf61 : null;
+      paint();
+      syncEditorPanel();
+      return;
+    }
     if (gameOver || deathFx || isLocked() || drag) return;
     if (e.button != null && e.button !== 0) return;
 
     const { x: fx, y: fy } = framePointFromClient(e.clientX, e.clientY);
+    const boardCell = cellFromFramePoint(fx, fy);
+    if (boardCell) {
+      const placed = placedAtCell(boardCell.row, boardCell.col);
+      if (placed) {
+        e.preventDefault();
+        stage.setPointerCapture?.(e.pointerId);
+        const grabCell = layout.cellRect(placed.originCol, placed.originRow);
+        removePlacedPiece(placed);
+        drag = createDragSession({
+          layout,
+          piece: placed.piece,
+          trayIndex: placed.trayIndex,
+          pointerId: e.pointerId,
+          fx,
+          fy,
+          getTune,
+        });
+        drag.frameX = grabCell.x;
+        drag.frameY = grabCell.y;
+        drag.targetOriginX = grabCell.x;
+        drag.targetOriginY = grabCell.y;
+        drag.baseCenterX = grabCell.x + (matrixSize(placed.piece.matrix).cols * layout.cell) / 2;
+        drag.baseCenterY = grabCell.y + (matrixSize(placed.piece.matrix).rows * layout.cell) / 2;
+        drag.tapStartFx = fx;
+        drag.tapStartFy = fy;
+        drag.returningFromBoard = true;
+        drag.originalPlaced = placed;
+        hover = null;
+        paint();
+        return;
+      }
+    }
+
     const idx = hitTrayIndex(fx, fy);
     if (idx < 0 || !tray[idx]) return;
 
     e.preventDefault();
     stage.setPointerCapture?.(e.pointerId);
-
-    const piece = tray[idx];
-    drag = createDragSession({
-      layout,
-      piece,
-      trayIndex: idx,
+    trayScrollDrag = {
       pointerId: e.pointerId,
-      fx,
-      fy,
-      getTune,
-    });
-    // P7/P9：固定拿起、无投影、无震动
+      startFx: fx,
+      startFy: fy,
+      startScrollX: trayScrollX,
+      trayIndex: idx,
+      moved: false,
+    };
     hover = null;
     paint();
   }
 
   function onPointerMove(e) {
-    if (!drag || e.pointerId !== drag.pointerId) return;
     e.preventDefault();
     const { x: fx, y: fy } = framePointFromClient(e.clientX, e.clientY);
+    if (trayScrollDrag && e.pointerId === trayScrollDrag.pointerId && !drag) {
+      const dx = fx - trayScrollDrag.startFx;
+      const dy = fy - trayScrollDrag.startFy;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) trayScrollDrag.moved = true;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 6) {
+        trayScrollX = clampTrayScroll(trayScrollDrag.startScrollX - dx);
+        paint();
+        return;
+      }
+      if (dy < -Math.max(10, layout.cell * 0.22)) {
+        const piece = tray[trayScrollDrag.trayIndex];
+        if (!piece) return;
+        drag = createDragSession({
+          layout,
+          piece,
+          trayIndex: trayScrollDrag.trayIndex,
+          pointerId: e.pointerId,
+          fx: trayScrollDrag.startFx,
+          fy: trayScrollDrag.startFy,
+          getTune,
+        });
+        drag.tapStartFx = trayScrollDrag.startFx;
+        drag.tapStartFy = trayScrollDrag.startFy;
+        drag.frameX -= trayScrollX;
+        drag.targetOriginX -= trayScrollX;
+        drag.baseCenterX -= trayScrollX;
+        trayScrollDrag = null;
+      } else {
+        return;
+      }
+    }
+    if (!drag || e.pointerId !== drag.pointerId) return;
     updateDragFromPointer(fx, fy);
   }
 
   function onPointerUp(e) {
+    if (trayScrollDrag && e.pointerId === trayScrollDrag.pointerId && !drag) {
+      e.preventDefault();
+      try {
+        stage.releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      const active = trayScrollDrag;
+      trayScrollDrag = null;
+      const upPoint = framePointFromClient(e.clientX, e.clientY);
+      const tapMove = Math.hypot(upPoint.x - active.startFx, upPoint.y - active.startFy);
+      if (tapMove < Math.max(10, layout.cell * 0.22)) {
+        const piece = tray[active.trayIndex];
+        if (piece) tray[active.trayIndex] = rotatePieceCW(piece);
+      }
+      paint();
+      updateStatus();
+      return;
+    }
     if (!drag || e.pointerId !== drag.pointerId) return;
     e.preventDefault();
     try {
@@ -859,8 +1125,32 @@ export function createGame(opts) {
     const h = hover;
     drag = null;
 
+    const upPoint = framePointFromClient(e.clientX, e.clientY);
+    const tapMove = Math.hypot(
+      upPoint.x - (active.tapStartFx ?? upPoint.x),
+      upPoint.y - (active.tapStartFy ?? upPoint.y),
+    );
+    if (!h?.valid && tapMove < Math.max(10, layout.cell * 0.22)) {
+      tray[active.trayIndex] = rotatePieceCW(active.piece);
+      hover = null;
+      placeSnap = null;
+      paint();
+      updateStatus();
+      return;
+    }
+
+    if (active.returningFromBoard && isInTrayBand(upPoint.x, upPoint.y)) {
+      tray[active.trayIndex] = active.piece;
+      hover = null;
+      placeSnap = null;
+      paint();
+      updateStatus();
+      return;
+    }
+
     if (h?.valid) {
       const cellsPlaced = countCells(active.piece.matrix);
+      const placedCells = collectPieceCells(active.piece, h.originRow, h.originCol);
       grid.place(
         active.piece.matrix,
         h.originRow,
@@ -868,6 +1158,14 @@ export function createGame(opts) {
         active.piece.cellColors || active.piece.color,
       );
       tray[active.trayIndex] = null;
+      placedPieces.push({
+        id: nextPlacedId++,
+        piece: active.piece,
+        trayIndex: active.trayIndex,
+        originRow: h.originRow,
+        originCol: h.originCol,
+        cells: placedCells,
+      });
 
       // 视觉：从拖拽位快速吸附到目标格（逻辑已 place）
       const to = placeOriginFrame(h.originRow, h.originCol);
@@ -884,21 +1182,19 @@ export function createGame(opts) {
           toX: to.x,
           toY: to.y,
           piece: active.piece,
-          hideCells: collectPieceCells(active.piece, h.originRow, h.originCol),
+          hideCells: placedCells,
         };
       } else {
         placeSnap = null;
       }
 
-      const lines = grid.findFullLines();
-      if (lines.count > 0) {
-        // 消行演出；逻辑清格延后且仅清本波 cells。可立即再拿下一块。
-        const collected = collectLineCells(
-          lines,
-          active.piece.matrix,
-          h.originRow,
-          h.originCol,
-        );
+      if (isBoardFull()) {
+        const lines = {
+          rows: Array.from({ length: GRID }, (_, i) => i),
+          cols: [],
+          count: GRID,
+        };
+        const collected = collectAllBoardCells();
         enqueueClearFx({
           lines,
           cells: collected.cells,
@@ -907,21 +1203,25 @@ export function createGame(opts) {
           duration: FEEL_CLEAR_MS,
           cellsPlaced,
         });
-        // 不 lock：放下即可连拿；后落子不进本波 clear 格表
+        lockInput(FEEL_CLEAR_MS);
       } else {
-        // 无消行：立即计分，不锁输入
         scoreState.onPlace({
           cellsPlaced,
           linesCleared: 0,
           boardEmpty: grid.isEmpty(),
         });
-        if (trayEmpty()) {
-          scoreState.onTrayRefill();
-          fillTray();
-        }
         checkGameOver();
       }
     } else {
+      if (active.returningFromBoard && active.originalPlaced) {
+        grid.place(
+          active.originalPlaced.piece.matrix,
+          active.originalPlaced.originRow,
+          active.originalPlaced.originCol,
+          active.originalPlaced.piece.cellColors || active.originalPlaced.piece.color,
+        );
+        placedPieces.push(active.originalPlaced);
+      }
       // 未放下：短暂防误触（可选）；合法放下不锁
       placeSnap = null;
       lockInput(FEEL_REJECT_MS);
@@ -951,13 +1251,8 @@ export function createGame(opts) {
       `debug\n` +
         `platform: ${Capacitor.getPlatform()} | haptics: ${haptics.isNativeIos() ? 'ios' : 'off'}\n` +
         `frame: ${Math.round(size.width)}×${Math.round(size.height)} · cell ${layout.cell.toFixed(1)}\n` +
-        `deal: ${lastDealMeta.phase} (base ${lastDealMeta.basePhase}) ` +
-        `score ${lastDealMeta.score ?? 0} fill ${(lastDealMeta.fill * 100).toFixed(0)}% ` +
-        `instant ${lastDealMeta.instant} ` +
-        `${lastDealMeta.mode} #${lastDealMeta.attempts}` +
-        (lastDealMeta.clearPlanLen != null
-          ? ` clear≤${lastDealMeta.clearPlanLen}`
-          : '') +
+        `puzzle: ${puzzleLevel} · missing ${puzzle?.missingCells ?? 0}\n` +
+        `deal: ${lastDealMeta.difficulty ?? '?'} ` +
         (gameOver ? '\nGAME OVER' : ''),
     );
   }
@@ -978,11 +1273,13 @@ export function createGame(opts) {
     camera.updateProjectionMatrix();
 
     layout = computeLayout(frame, safe);
+    trayScrollX = clampTrayScroll(trayScrollX);
     boardView.rebuild(layout);
     drag = null;
     hover = null;
     applyScoreUi();
     paint();
+    syncEditorPanel();
     updateStatus();
   }
 
@@ -997,7 +1294,15 @@ export function createGame(opts) {
   }
 
   // init
-  fillTray();
+  if (editorMode) {
+    puzzleLevel = editorLevel;
+    puzzle = createPuzzle(editorLevel);
+    tray = Array.from({ length: TRAY_SIZE }, () => null);
+    grid.load(puzzle.board);
+  } else {
+    puzzleLevel = initialPuzzleLevel - 1;
+    startNextPuzzle();
+  }
   boardView.rebuild(layout);
   setGameOver(false);
   paint();
@@ -1016,6 +1321,26 @@ export function createGame(opts) {
       e.stopPropagation();
       restart();
     });
+  }
+
+  if (editorMode) {
+    syncEditorPanel();
+    editorCopyBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      copyEditorMask();
+    });
+    editorClearBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setAllEditorCells(false);
+    });
+    editorFillBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setAllEditorCells(true);
+    });
+    editorEl?.addEventListener('pointerdown', (e) => e.stopPropagation());
   }
 
   let running = true;

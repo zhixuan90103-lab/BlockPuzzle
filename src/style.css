@@ -254,6 +254,67 @@ header {
   color: rgba(255, 255, 255, 0.65);
 }
 
+.level-editor {
+  position: absolute;
+  left: calc(var(--safe-left) + 12px);
+  right: calc(var(--safe-right) + 12px);
+  bottom: calc(var(--safe-bottom) + 10px);
+  z-index: 44;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(20, 18, 38, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  pointer-events: auto;
+}
+
+.level-editor[hidden] {
+  display: none !important;
+}
+
+.level-editor-title {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.level-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.level-editor button {
+  appearance: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: #ffffff;
+  color: #2b254f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.level-editor textarea {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 84px;
+  resize: none;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1d1a2d;
+  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0;
+}
+
 /* 死亡开场：全屏闪红两次（柔和淡入淡出） */
 .death-flash {
   position: absolute;
@@ -690,6 +751,27 @@ button:active {
   font-size: 11px;
   line-height: 1.35;
   color: rgba(255, 248, 231, 0.42);
+}
+
+/* 推送难度三档（设置顶部） */
+.feel-diff-bar {
+  border-bottom: 1px solid rgba(255, 248, 231, 0.1);
+  background: rgba(255, 159, 67, 0.06);
+}
+
+.feel-diff-bar .feel-preset-label {
+  color: rgba(255, 213, 74, 0.9);
+}
+
+.feel-diff-btn {
+  font-size: 15px;
+}
+
+.feel-diff-btn.is-active {
+  background: linear-gradient(180deg, #ff9f43, #e85d04);
+  border-color: rgba(255, 213, 74, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 213, 74, 0.25);
+  color: #fff;
 }
 
 .feel-panel-body {

@@ -1,7 +1,7 @@
 # Block Blast 项目实现与问题纪要
 
-> 整理日期：**2026-07-31**（续 **§16**）  
-> 范围：… → 投影 → **Bug/补丁→设计重构总结**  
+> 整理日期：**2026-07-31**（续 **§17**）  
+> 范围：… → 投影设计收敛 → **盘中/盘缘分阈值 · 连拿/exact clear · 文档规范化**  
 
 
 > 工程根目录：`three-webgpu-cap-shell/`（Git：`zhixuan90103-lab/BlockBlast_New`）  
@@ -13,9 +13,10 @@
 |------|------|
 | [README.md](./README.md) | **文档索引与规范** |
 | [FEEL-DESIGN.md](./FEEL-DESIGN.md) | 手感问题 → 不变量（P1–P24，含消行/震动/死亡/布局区） |
-| [GHOST-DESIGN.md](./GHOST-DESIGN.md) | **投影 SSOT**（跟本体 · 卡边 · 斜向） |
+| [GHOST-DESIGN.md](./GHOST-DESIGN.md) | **投影 SSOT**（8 向 · 0.5/1.0/1.3 · 验收） |
 | [DEAL-PUSH-COMPLETE.md](./DEAL-PUSH-COMPLETE.md) | **发块完整规格 SSOT** |
 | [DEAL-DESIGN.md](./DEAL-DESIGN.md) | 发块短摘要（指针） |
+| [RUNTIME-DEFAULTS.md](./RUNTIME-DEFAULTS.md) | defaults 易查摘要 |
 | [ENGINEERING.md](./ENGINEERING.md) | 底座、Capacitor、WebGPU、安全区 |
 | [ENTRYPOINTS.md](./ENTRYPOINTS.md) | 命令与启动链 · DOM |
 | `src/game/defaults.js` | **运行时常量真源** |
@@ -717,7 +718,7 @@ ghost-policy.js
 | 影提前 | L_open=0.5，跟本体 free |
 | 格缝闪 | H_open 施密特；禁时间锁；失败钉住 |
 | 横拖钝 | 无 settle；H 有角色 |
-| 卡边松 | L_edge=1.3 |
+| 卡边松 | 后拆为 **L_block=1.0 / L_board=1.3**（§17） |
 | 先横后斜 vs 影落后 | 8 向 + 斜向可先单轴一格（方案 1） |
 | 甩影 | MAX_LAG 灭影 |
 
@@ -727,8 +728,65 @@ ghost-policy.js
 |------|------|
 | **GHOST-DESIGN** | 唯一行为 SSOT（演进 + 流水线 + 参数 + 验收） |
 | FEEL-DESIGN §10 | 摘要指针 |
-| HISTORY §13–16 | 迭代史；§16 为本总结 |
+| HISTORY §13–17 | 迭代史；§16 设计重构；§17 分阈值与输入/消行 |
 
 ### 16.4 约定
 
 改投影：**先改 GHOST-DESIGN，再改 ghost-policy**；新现象归 G-*，不平行加状态机。
+
+---
+
+## 17. 盘中/盘缘分粘 · 连拿与 exact clear · 文档规范化（2026-07-31）
+
+> 代码主线：`8cefd6e`（L_block 分拆）· `5575134`（连拿 / place-during-clear）等  
+> 投影条文：仍以 [GHOST-DESIGN.md](./GHOST-DESIGN.md) 为 SSOT
+
+### 17.1 现象与产品希望
+
+| 现象 | 希望 |
+|------|------|
+| 盘**内**被已有块堵住时，1.3 太粘 | 盘中卡边约 **1 格** 可离开 |
+| 贴**棋盘外沿**仍要明显粘 | 外沿保持 **1.3** |
+| 松手消行时不能立刻再拿 | **合法放下不锁输入** |
+| 消行动画中再放的块被「上一波」清掉 | 动画结束只 **`clearExactCells(本波格表)`** |
+| 落位吸附过长 / 样式半截 | `PLACE_SNAP_MS=42`；落位中 hide 用 **visible+recolor**，勿靠 opacity 0 |
+
+### 17.2 投影：leaveKind 三分
+
+`ghost-policy.leaveKind`：
+
+| 一步后 | 角色 | 默认 L |
+|--------|------|--------|
+| `fits` | open | 0.5 + H_open |
+| 出 8×8 界 | board | 1.3 |
+| 界内叠块 | block | **1.0** |
+
+`MAX_LAG=1.45` 须大于 max(L_board, L_block)。面板：`盘内贴块粘滞` / `棋盘外沿粘滞`（`tune.js`）。
+
+### 17.3 输入与消行编排（game）
+
+| 规则 | 实现要点 |
+|------|----------|
+| 合法 place 成功 | **不** `lockInput`；可立即再拖 |
+| 消行中 | 允许指针；clear 队列按波播 FX |
+| clear 提交 | `grid.clearExactCells(cells)`，**非**整盘 clearLines 扫行 |
+| placeSnap | 短吸附；期间 hideCells 隐藏落位格，避免与盘面叠影 |
+
+### 17.4 文档规范化（本轮）
+
+| 文档 | 动作 |
+|------|------|
+| [docs/README.md](./README.md) | 索引对齐 §16–§17、SSOT 地图、近期主题 |
+| [RUNTIME-DEFAULTS.md](./RUNTIME-DEFAULTS.md) | 投影三分 L · placeSnap · 输入锁摘要 |
+| [GHOST-DESIGN.md](./GHOST-DESIGN.md) | 验收 A3/A3b/A5 分盘中/盘缘 |
+| [FEEL-DESIGN.md](./FEEL-DESIGN.md) §10–§11 | 摘要与滑条标签与 tune 一致 |
+| [AGENTS.md](../AGENTS.md) | 入口、硬性约定 9–11、笔记指向 §17 |
+| [../README.md](../README.md) | 文档表 + 功能快照 |
+| 本节 **§17** | 本笔记 |
+
+### 17.5 约定补充
+
+1. **数值真源**仅 `defaults.js`；RUNTIME-DEFAULTS 只做摘要。  
+2. 改投影 → GHOST-DESIGN → 代码 → HISTORY 择机追加。  
+3. 改输入/消行编排 → FEEL 或 HISTORY 记决策 + game/grid 实现。  
+4. 口语「打包」= `cap:sync` → 真机 `xcodebuild` → `devicectl`。  

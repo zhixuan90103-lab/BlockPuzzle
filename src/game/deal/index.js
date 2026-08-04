@@ -1,14 +1,9 @@
 /**
- * 发块子系统公开 API（重构后）
+ * 发块子系统公开 API（新节奏）
  *
- * pipeline  — 意图编排
- * session   — 跨 tray 会话（非剧本）
- * accept    — 验收档案
- * payoff    — T6 大消钥匙
- * cavity    — 空腔补缺
- * clear     — 全清/助清搜索
- * sample    — 主采样
- * board-ops — 盘面纯函数
+ * difficulty — 人控简单/中等/困难（instant 3/2/1）
+ * rhythm     — 贴空 + 整齐采样
+ * pipeline   — generateTray
  */
 export {
   anyTrayPieceFits,
@@ -24,11 +19,31 @@ export {
   resetDealState,
   rollDealPhase,
 } from './pipeline.js';
-export { ROLE_FAMILIES, roleMixForPhase, roleOfFamily, rollRole } from './bag.js';
-export { boardHasPayoffSetup, rankPayoffForms } from './payoff-match.js';
+
+export {
+  DEAL_DIFFICULTIES,
+  DEAL_DIFFICULTY_META,
+  getDealDifficulty,
+  instantRangeForDifficulty,
+  isDealDifficulty,
+  onDealDifficultyChange,
+  setDealDifficulty,
+} from './difficulty.js';
+
+export {
+  allPlayableForms,
+  catalogBoardForms,
+  fallbackRhythmTray,
+  sampleRhythmTray,
+  scoreFormAgainstBoard,
+  scoreTrayRhythm,
+} from './rhythm.js';
+
 export { getDealPolicy } from './policy.js';
+export { boardHasPayoffSetup, rankPayoffForms } from './payoff-match.js';
 export {
   allowsFullClearSearch,
   allowsPayoffIntent,
   maxEmptyRect,
 } from './board-state.js';
+export { ROLE_FAMILIES, roleMixForPhase, roleOfFamily, rollRole } from './bag.js';
