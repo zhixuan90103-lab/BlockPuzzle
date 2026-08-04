@@ -193,23 +193,24 @@ header {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  min-height: 28px;
+  min-height: 44px;
 }
 
 .best-score {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #f0c14a;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  gap: 4px;
+  min-width: 96px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 2px 0 rgba(55, 42, 150, 0.36);
   font-variant-numeric: tabular-nums;
-}
-
-.crown {
-  font-size: 16px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+  letter-spacing: 0;
+  background: rgba(57, 46, 164, 0.18);
 }
 
 .score-center {

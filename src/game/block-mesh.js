@@ -190,6 +190,22 @@ export function applyFilledCellScale(g, animScale = 1) {
 }
 
 /**
+ * 从某一侧展开：scale 仍作用在中心点，通过位置补偿制造边缘锚定感。
+ * @param {THREE.Object3D} g
+ * @param {number} animScale
+ * @param {{ x?: -1 | 0 | 1, y?: -1 | 0 | 1, size?: number }} anchor
+ */
+export function applyFilledCellAnchoredScale(g, animScale = 1, anchor = {}) {
+  applyFilledCellScale(g, animScale);
+  const sizeS = g.userData.sizeScale ?? 1;
+  const size = anchor.size ?? g.userData.baseSize ?? 0;
+  const dx = ((anchor.x ?? 0) * size * sizeS * (1 - animScale)) / 2;
+  const dy = ((anchor.y ?? 0) * size * sizeS * (1 - animScale)) / 2;
+  g.position.x += dx;
+  g.position.y += dy;
+}
+
+/**
  * @param {number} size
  * @param {number} color
  * @param {number} [opacity]

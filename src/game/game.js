@@ -117,6 +117,8 @@ export function createGame(opts) {
   /** 消行演出进行中再触发的消除，排队顺序播 */
   /** @type {NonNullable<typeof clearFx>[]} */
   let clearQueue = [];
+  /** @type {null | { start: number, duration: number, stagger: number }} */
+  let boardRevealFx = null;
 
   /**
    * 松手落位：拖拽位 → 目标格快速吸附（视觉）；逻辑已 place。
@@ -192,6 +194,8 @@ export function createGame(opts) {
     while (tray.length < TRAY_SIZE) tray.push(null);
     trayScrollX = 0;
     placedPieces = [];
+    boardRevealFx = { start: performance.now(), duration: 500, stagger: 54 };
+    lockInput(170);
   }
 
   function fillBoardForEditor() {
@@ -208,6 +212,16 @@ export function createGame(opts) {
     return tray.every((p) => p == null);
   }
 
+  function updateBestScore() {
+    if (scoreState.score <= bestScore) return;
+    bestScore = scoreState.score;
+    try {
+      localStorage.setItem('bb_best', String(bestScore));
+    } catch {
+      /* ignore */
+    }
+  }
+
   function setGameOver(on) {
     gameOver = on;
     if (overlayEl) {
@@ -221,14 +235,7 @@ export function createGame(opts) {
     }
     if (on) {
       if (finalScoreEl) finalScoreEl.textContent = String(scoreState.score);
-      if (scoreState.score > bestScore) {
-        bestScore = scoreState.score;
-        try {
-          localStorage.setItem('bb_best', String(bestScore));
-        } catch {
-          /* ignore */
-        }
-      }
+      updateBestScore();
       syncHud();
     }
   }
@@ -372,14 +379,7 @@ export function createGame(opts) {
     setDeathFlash(true);
     // 结算数据先写好，动画结束后再亮 overlay
     if (finalScoreEl) finalScoreEl.textContent = String(scoreState.score);
-    if (scoreState.score > bestScore) {
-      bestScore = scoreState.score;
-      try {
-        localStorage.setItem('bb_best', String(bestScore));
-      } catch {
-        /* ignore */
-      }
-    }
+    updateBestScore();
     syncHud();
     paint();
   }
@@ -473,6 +473,7 @@ export function createGame(opts) {
     hover = null;
     clearFx = null;
     clearQueue = [];
+    boardRevealFx = null;
     placeSnap = null;
     deathFx = null;
     setDeathFlash(false);
@@ -636,6 +637,23 @@ export function createGame(opts) {
         }
       }
     }
+    if (!deathFx && boardRevealFx) {
+      if (!cellOpacity) {
+        cellOpacity = Array.from({ length: GRID }, () => Array(GRID).fill(1));
+      }
+      const elapsed = nowMs - boardRevealFx.start;
+      const inner = (GRID - 1) / 2;
+      for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+          if (grid.cells[r][c] == null) continue;
+          const edgeDist = Math.min(r, c, GRID - 1 - r, GRID - 1 - c);
+          const delay = edgeDist * boardRevealFx.stagger;
+          const local = Math.min(1, Math.max(0, (elapsed - delay) / boardRevealFx.duration));
+          const ease = 1 - (1 - local) ** 3;
+          cellOpacity[r][c] = Math.min(cellOpacity[r][c], ease);
+        }
+      }
+    }
 
     boardView.render({
       layout,
@@ -757,15 +775,16 @@ export function createGame(opts) {
     return true;
   }
 
-  function collectAllBoardCells() {
+  function collectAllBoardCells(originCenter = null) {
     /** @type {{ row: number, col: number, color: number, delay01: number, spin: number }[]} */
     const cells = [];
-    const center = (GRID - 1) / 2;
+    const centerRow = originCenter?.row ?? (GRID - 1) / 2;
+    const centerCol = originCenter?.col ?? (GRID - 1) / 2;
     for (let r = 0; r < GRID; r++) {
       for (let c = 0; c < GRID; c++) {
         const color = grid.cells[r][c];
         if (color == null) continue;
-        const dist = Math.abs(r - center) + Math.abs(c - center);
+        const dist = Math.abs(r - centerRow) + Math.abs(c - centerCol);
         cells.push({
           row: r,
           col: c,
@@ -779,10 +798,10 @@ export function createGame(opts) {
     return {
       cells,
       sweep: {
-        fromLeft: true,
-        fromTop: true,
-        epicRow: center,
-        epicCol: center,
+        fromLeft: centerCol <= (GRID - 1) / 2,
+        fromTop: centerRow <= (GRID - 1) / 2,
+        epicRow: centerRow,
+        epicCol: centerCol,
       },
     };
   }
@@ -813,6 +832,7 @@ export function createGame(opts) {
       linesCleared,
       boardEmpty: grid.isEmpty(),
     });
+    updateBestScore();
     if (trayEmpty() && grid.isEmpty()) startNextPuzzle();
     checkGameOver();
 
@@ -839,6 +859,16 @@ export function createGame(opts) {
     }
     // 拖拽时由 tickDragFrame paint；仅清行时这里刷帧
     if (!drag) paint();
+  }
+
+  function tickBoardRevealFx() {
+    if (!boardRevealFx) return;
+    const maxEdge = Math.floor((GRID - 1) / 2);
+    const total = boardRevealFx.duration + maxEdge * boardRevealFx.stagger;
+    if (performance.now() - boardRevealFx.start >= total) {
+      boardRevealFx = null;
+    }
+    paint();
   }
 
   function framePointFromClient(clientX, clientY) {
@@ -1189,12 +1219,18 @@ export function createGame(opts) {
       }
 
       if (isBoardFull()) {
+        const clearOrigin = placedCells.length
+          ? {
+              row: placedCells.reduce((sum, cell) => sum + cell.row, 0) / placedCells.length,
+              col: placedCells.reduce((sum, cell) => sum + cell.col, 0) / placedCells.length,
+            }
+          : { row: h.originRow, col: h.originCol };
         const lines = {
           rows: Array.from({ length: GRID }, (_, i) => i),
           cols: [],
           count: GRID,
         };
-        const collected = collectAllBoardCells();
+        const collected = collectAllBoardCells(clearOrigin);
         enqueueClearFx({
           lines,
           cells: collected.cells,
@@ -1353,6 +1389,7 @@ export function createGame(opts) {
       if (drag) tickDragFrame();
       if (placeSnap) tickPlaceSnap();
       if (clearFx) tickClearFx();
+      else if (boardRevealFx && !drag && !placeSnap) tickBoardRevealFx();
       else if (!drag && !placeSnap && boardView.hasActiveDebris?.()) paint();
     }
     renderer.render(scene, camera);

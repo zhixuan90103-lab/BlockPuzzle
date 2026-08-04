@@ -584,10 +584,10 @@ export function createBoardView(scene) {
         } else {
           setFillGroupOpacity(fill, cellOp);
         }
-        // 淡入时略放大→落定
+        // 淡入时从中心点由小到大。
         let animScale = 1;
         if (cellOp < 0.999 && cellOp > 0.02) {
-          animScale = 0.88 + 0.12 * cellOp;
+          animScale = 0.68 + 0.32 * cellOp;
         }
 
         // 仅「已落子且属于将满行/列」才预警（空槽、无关块不预警）

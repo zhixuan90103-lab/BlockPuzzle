@@ -422,7 +422,7 @@ export const FEEL_REJECT_MS = 180;
  */
 export const FEEL_PLACE_SNAP_MS = 42;
 /** 落子消行动画时长（ms）：自落子处向外依次收缩 → 清格 */
-export const FEEL_CLEAR_MS = 280;
+export const FEEL_CLEAR_MS = 320;
 /** 消行错峰：时间轴前段用于按距离排序启动（0–1） */
 export const FEEL_CLEAR_STAGGER = 0.42;
 /** 单格收缩占用时间轴比例（越大单格缩/转越慢） */
