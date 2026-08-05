@@ -364,8 +364,11 @@ export const FEEL_SMOOTH_TIME = 0.012;
 /** 指速增益自身再平滑（秒）；过大会让加速「慢半拍」 */
 export const FEEL_GAIN_SMOOTH_TIME = 0.018;
 // 上两项与真机面板一致：短平滑、跟手优先
-/** 合法投影：本色半透；非法不显示投影 */
-export const FEEL_GHOST_ALPHA = 0.15;
+/**
+ * 合法投影：本色半透；非法不显示投影。
+ * 亮色盘面 + 灰空格下 0.15 几乎不可见，提高到可读水平。
+ */
+export const FEEL_GHOST_ALPHA = 0.48;
 /**
  * L_open：不卡边时沿 8 向离开距离（格）。约过中线即换影。
  * 2026-08：略降，半卡住仍有合法邻格时跟手更快。
@@ -501,7 +504,8 @@ export const LAYOUT_GRID_TOP_GAP = 0.018;
 /** 顶部分数占位 / frame 高（几何空间，非 UI 样式）— 略增防分数压棋盘 */
 export const LAYOUT_HUD_SCORE_H = 0.13;
 /** 分数文字字号（CSS px）— 真机略小，避免压盘 */
-export const UI_SCORE_FONT_PX = 48;
+/** 顶栏 BEST/SCORE 数字字号（与 hud-tune 默认一致；旧 tune 兼容） */
+export const UI_SCORE_FONT_PX = 50;
 /**
  * 分数垂直偏移 / frame 高（+ 下移）。
  * 只动 HUD 文字；过大易压到棋盘。默认贴近顶栏。
@@ -585,43 +589,43 @@ export const TRAY_LIFT_SNAP_MS = 60;
 /** 惯性速度钳制（px/s，不是 px/ms） */
 export const TRAY_FLING_MAX_V = 1100;
 
-// —— 视觉：对齐正版紫底糖果（参考官方截图）——
+// —— 视觉：天蓝清爽（style-mockups batch14 / 选定稿）——
 export const COLOR = {
-  /** 桌面紫渐变偏中 */
-  bg: 0x6b5bdb,
-  bgDeep: 0x4a3bb5,
-  /** 棋盘深蓝紫 */
-  boardFill: 0x241f52,
-  boardFrame: 0x8b7cf0,
-  boardFrameDark: 0x5a4fc4,
+  /** 天空蓝桌面 */
+  bg: 0x6ec4f0,
+  bgDeep: 0x5ab4e6,
+  /** 棋盘白底卡片 */
+  boardFill: 0xf4f6f8,
+  boardFrame: 0xffffff,
+  boardFrameDark: 0xe8ecef,
   /**
-   * 空格：与盘底对比更强（深描边 + 中亮槽 + 内凹）
+   * 空格：中灰扁平（与彩块对比更清楚）
    */
-  cellEmpty: 0x4a4499,
-  cellEmptyStroke: 0x15122e,
-  cellEmptyInner: 0x3a3480,
-  /** tray 区（与桌面融合，几乎无框） */
-  traySlot: 0x5c4ecf,
-  traySlotStroke: 0x4a3bb5,
+  cellEmpty: 0xa8b0ba,
+  cellEmptyStroke: 0x96a0ac,
+  cellEmptyInner: 0xa8b0ba,
+  /** tray 区浅底 */
+  traySlot: 0xffffff,
+  traySlotStroke: 0xe8ecef,
   /** 预亮 */
   preclear: 0xffe566,
   /** UI */
-  accent: 0xff6bcb,
+  accent: 0xff8a7a,
   text: 0xffffff,
 };
 
-/** 正版糖果色（高饱和、偏亮） */
+/** 清爽糖果色：天蓝 / 薄荷 / 珊瑚 / 黄油 */
 export const PIECE_PALETTE = [
-  0x4da3ff, // blue
-  0xffd54a, // yellow / gold
-  0xa78bfa, // soft purple
-  0xff9f43, // orange
-  0xff5c5c, // red
-  0x4ade80, // green
-  0x3dceff, // cyan / sky（截图拖中块）
-  0x60a5fa, // light blue
-  0xfbbf24, // amber
-  0xf472b6, // pink
+  0x7eb6e8, // soft sky blue
+  0x7dcfb6, // mint
+  0xf08a7a, // coral
+  0xf5d76e, // butter yellow
+  0x6bb8e8, // light azure
+  0x6fc4a8, // teal mint
+  0xff9a8b, // soft coral
+  0xffe08a, // pale gold
+  0x8ec5f0, // powder blue
+  0x88d4bc, // seafoam
 ];
 
 /** 调试状态默认隐藏（?debug=1 显示） */

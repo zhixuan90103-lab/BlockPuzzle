@@ -7,6 +7,7 @@ import {
   acquireFilledCell,
   applyFilledCellScale,
   createEmptyCell,
+  flushFilledCellPool,
   getRoundedRectGeometry,
   recolorFilledCell,
   releaseFilledCell,
@@ -28,6 +29,19 @@ import {
 } from './defaults.js';
 import { matrixSize } from './forms.js';
 import { frameToThree } from './layout.js';
+import {
+  boardEmptyColors,
+  boardFillHex,
+  boardFrameHex,
+  boardShadowHex,
+  getBoardTune,
+} from './board-tune.js';
+import { getPieceTune, pieceShadowHex } from './piece-tune.js';
+import {
+  getTrayDockTune,
+  trayDockFillHex,
+  trayDockShadowHex,
+} from './tray-dock-tune.js';
 import { getTune } from './tune.js';
 
 /**
@@ -174,10 +188,11 @@ export function createBoardView(scene) {
    * @param {number} z
    */
   function acquireGhostCell(size, color, alpha, z) {
-    const a = Math.min(0.95, Math.max(0.04, alpha));
+    // 投影：单层主体 + 全局统一透明度（无 rim/底暗分层透明度变化）
+    const a = Math.min(0.92, Math.max(0.38, alpha));
     let g = ghostCellPool.pop();
     if (!g) {
-      g = acquireFilledCell(size, color, a, z);
+      g = acquireFilledCell(size, color, 1, z);
     } else {
       setFilledCellSize(g, size);
       const children = g.children;
@@ -191,16 +206,34 @@ export function createBoardView(scene) {
       applyFilledCellScale(g, 1);
       g.visible = true;
     }
-    // 统一上色 + 钉死透明（池内可能曾是不透明实心）
-    recolorFilledCell(g, color, a);
-    g.traverse((o) => {
-      if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
-      o.material.transparent = true;
-      o.material.depthWrite = false;
-      if ('forceSinglePass' in o.material) o.material.forceSinglePass = true;
-      o.material.needsUpdate = true;
-    });
-    g.renderOrder = -1;
+
+    // 只保留 main 一层：本色 + 统一 alpha；其它层隐藏
+    const children = g.children;
+    for (let i = 0; i < children.length; i++) {
+      const mesh = children[i];
+      if (!mesh?.isMesh || !mesh.material || Array.isArray(mesh.material)) continue;
+      const mat = mesh.material;
+      if (i === 1) {
+        mesh.visible = true;
+        mat.color.setHex(color);
+        mat.opacity = a;
+        mat.transparent = true;
+        mat.depthWrite = false;
+        mat.userData.baseOpacity = a;
+        mat.userData.baseColor = color;
+        if ('forceSinglePass' in mat) mat.forceSinglePass = true;
+        mat.needsUpdate = true;
+      } else {
+        mesh.visible = false;
+        mat.opacity = 0;
+        mat.transparent = true;
+        mat.depthWrite = false;
+      }
+    }
+    g.userData.color = color;
+    g.userData.mainMat = children[1]?.material;
+    // 高于盘面静态格，低于拖拽本体（z≈0.25）
+    g.renderOrder = 2;
     g.userData.kind = 'ghostCell';
     g.userData.poolKind = 'ghost';
     g.userData.isEmpty = false;
@@ -292,10 +325,11 @@ export function createBoardView(scene) {
     geo.computeVertexNormals();
     geo.computeBoundingSphere();
 
+    const pt = getPieceTune();
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x2a1a0c,
+      color: pieceShadowHex(pt),
       transparent: true,
-      opacity: 0.32,
+      opacity: Math.max(0, Math.min(1, pt.PIECE_SHADOW_OP)),
       depthWrite: false,
       depthTest: true,
       side: THREE.DoubleSide,
@@ -307,7 +341,8 @@ export function createBoardView(scene) {
 
     const mesh = new THREE.Mesh(geo, mat);
     mesh.userData.poolKind = 'shadow';
-    mesh.renderOrder = -2; // 画在 tray 块下面
+    // 高于白底 dock（-6），低于块本体（0+）
+    mesh.renderOrder = -3;
     mesh.frustumCulled = true;
     mesh.position.set(0, 0, 0);
     mesh.rotation.set(0, 0, 0);
@@ -359,21 +394,53 @@ export function createBoardView(scene) {
 
     /** 棋盘格内容边长（决定格间距观感） */
     const size = Math.max(2, cellFill);
+    const bt = getBoardTune();
+    const emptyCols = boardEmptyColors();
+    const cornerRatio =
+      Number.isFinite(bt.BOARD_CELL_CORNER) && bt.BOARD_CELL_CORNER > 0
+        ? bt.BOARD_CELL_CORNER
+        : CELL_CORNER_RATIO;
 
     // 棋盘底板：外框/底层圆角与空格一致（外扩平行圆角，避免角上「大圆角被空格压住」）
     {
-      const framePad = cell * 0.08;
+      const framePad = cell * Math.max(0.01, bt.BOARD_FRAME_PAD_CELLS ?? 0.12);
+      const innerPad = cell * Math.max(0, bt.BOARD_INNER_PAD_CELLS ?? 0.02);
       const c = frameToThree(grid.x + grid.w / 2, grid.y + grid.h / 2, frameW, frameH);
-      // 空格圆角半径（与 createEmptyCell 相同）
-      const cellR = size * CELL_CORNER_RATIO;
-      // 底层（盘面）：略大于 8×8 内容区，圆角 = 空格圆角 + 微边
-      const innerW = grid.w + cell * 0.02;
-      const innerH = grid.h + cell * 0.02;
+      const cellR = size * cornerRatio;
+      const innerW = grid.w + innerPad;
+      const innerH = grid.h + innerPad;
       const innerR = cellR + cell * 0.01;
-      // 浅色外框：再外扩 pad，圆角同步 +pad（平行圆角）
       const outerW = grid.w + framePad * 2;
       const outerH = grid.h + framePad * 2;
       const outerR = innerR + framePad;
+
+      // 棋盘投影：在白框下方
+      const shOp = Math.max(0, Math.min(0.5, bt.BOARD_SHADOW_OPACITY ?? 0.14));
+      if (shOp > 0.001) {
+        const sp = Math.max(0, bt.BOARD_SHADOW_SPREAD ?? 0.02);
+        const shY = bt.BOARD_SHADOW_Y_PX ?? 5;
+        const shW = outerW * (1 + sp * 2);
+        const shH = outerH * (1 + sp * 1.5);
+        const shC = frameToThree(
+          grid.x + grid.w / 2,
+          grid.y + grid.h / 2 + shY,
+          frameW,
+          frameH,
+        );
+        const shadow = new THREE.Mesh(
+          getRoundedRectGeometry(shW, shH, outerR / Math.min(shW, shH)),
+          new THREE.MeshBasicMaterial({
+            color: boardShadowHex(bt),
+            transparent: true,
+            opacity: shOp,
+            depthWrite: false,
+          }),
+        );
+        shadow.position.set(shC.x, shC.y, -0.12);
+        shadow.renderOrder = -10;
+        staticRoot.add(shadow);
+        staticMeshes.push(shadow);
+      }
 
       const outer = new THREE.Mesh(
         getRoundedRectGeometry(
@@ -381,7 +448,7 @@ export function createBoardView(scene) {
           outerH,
           outerR / Math.min(outerW, outerH),
         ),
-        new THREE.MeshBasicMaterial({ color: COLOR.boardFrame }),
+        new THREE.MeshBasicMaterial({ color: boardFrameHex(bt) }),
       );
       outer.position.set(c.x, c.y, -0.08);
       staticRoot.add(outer);
@@ -393,22 +460,28 @@ export function createBoardView(scene) {
           innerH,
           innerR / Math.min(innerW, innerH),
         ),
-        new THREE.MeshBasicMaterial({ color: COLOR.boardFill }),
+        new THREE.MeshBasicMaterial({ color: boardFillHex(bt) }),
       );
       bg.position.set(c.x, c.y, -0.04);
       staticRoot.add(bg);
       staticMeshes.push(bg);
     }
 
+    const emptyOp = Math.max(0.2, Math.min(1, bt.BOARD_EMPTY_OPACITY ?? 1));
     for (let row = 0; row < GRID; row++) {
       for (let col = 0; col < GRID; col++) {
         const rect = layout.cellRect(col, row);
         const center = frameToThree(rect.x + rect.w / 2, rect.y + rect.h / 2, frameW, frameH);
-        const cellG = createEmptyCell(size, {
-          stroke: COLOR.cellEmptyStroke,
-          fill: COLOR.cellEmpty,
-          inner: COLOR.cellEmptyInner,
-        });
+        const cellG = createEmptyCell(
+          size,
+          {
+            stroke: emptyCols.stroke,
+            fill: emptyCols.fill,
+            inner: emptyCols.inner,
+          },
+          emptyOp,
+          cornerRatio,
+        );
         cellG.position.set(center.x, center.y, 0);
         cellG.userData = { col, row, kind: 'cell', cellSize: size, isEmpty: true };
         staticRoot.add(cellG);
@@ -422,17 +495,18 @@ export function createBoardView(scene) {
 
   function paintEmptyStyle(group) {
     // rebuild empty look via mainMat only — full empty is multi-layer
-    // Replace group children colors
+    const cols = boardEmptyColors();
+    const op = Math.max(0.2, Math.min(1, getBoardTune().BOARD_EMPTY_OPACITY ?? 1));
     const mats = [];
     group.traverse((o) => {
       if (o.isMesh && o.material) mats.push(o.material);
     });
-    if (mats[0]) mats[0].color.setHex(COLOR.cellEmptyStroke);
-    if (mats[1]) mats[1].color.setHex(COLOR.cellEmpty);
+    if (mats[0]) mats[0].color.setHex(cols.stroke);
+    if (mats[1]) mats[1].color.setHex(cols.fill);
     if (mats[2]) {
-      mats[2].color.setHex(COLOR.cellEmptyInner);
-      mats[2].opacity = 1;
-      mats[2].transparent = false;
+      mats[2].color.setHex(cols.inner);
+      mats[2].opacity = op;
+      mats[2].transparent = op < 0.999;
     }
     group.userData.isEmpty = true;
     group.scale.set(1, 1, 1);
@@ -626,7 +700,61 @@ export function createBoardView(scene) {
    * @param {boolean} ghostValid
    * @param {ReturnType<import('./layout.js').computeLayout>} layout
    */
-  /** 底栏三等分摆放区（与 hitTrayIndex / layout.tray.slots 一致） */
+  /**
+   * 底栏全宽白条（候选区 dock，左右贯通；块在条上横滑）
+   * @param {ReturnType<import('./layout.js').computeLayout>} layout
+   */
+  function addTrayDockBar(layout) {
+    const tray = layout.tray;
+    const { frameW, frameH, cell } = layout;
+    if (!tray || !(tray.w > 0) || !(tray.h > 0)) return;
+
+    const td = getTrayDockTune();
+    const cellPx = cell || 20;
+    const barH = Math.max(
+      tray.cell * Math.max(0.2, td.DOCK_H_MIN_CELLS),
+      tray.h * Math.max(0.05, td.DOCK_H_FRAC),
+    );
+    const barW = Math.max(
+      8,
+      tray.w * Math.max(0.2, td.DOCK_W_FRAC) + cellPx * td.DOCK_W_EXTRA_CELLS,
+    );
+    const cx = tray.x + tray.w / 2 + (td.DOCK_X_NUDGE_PX || 0);
+    const cy = (tray.cy ?? tray.y + tray.h / 2) + (td.DOCK_Y_NUDGE_PX || 0);
+    const center = frameToThree(cx, cy, frameW, frameH);
+    const cornerCap = Math.max(0.02, Math.min(0.5, td.DOCK_CORNER));
+    const corner = Math.min(cornerCap, barH / Math.min(barW, barH) * 0.5);
+    const opacity = Math.max(0, Math.min(1, td.DOCK_OPACITY));
+
+    // 层级：dock 阴影 < 白底 < 块阴影 < 块本体
+    // renderOrder：透明物体排序，避免白底盖住块阴影
+    const zShadow = -0.06;
+    const zDock = -0.04;
+    const shadowOp = Math.max(0, Math.min(0.6, td.DOCK_SHADOW_OPACITY ?? 0.18));
+    const spread = Math.max(0, td.DOCK_SHADOW_SPREAD ?? 0.04);
+    const shadowY = td.DOCK_SHADOW_Y_PX ?? 4;
+    // 底板完全透明时也不画阴影
+    if (opacity > 0.001 && shadowOp > 0.001) {
+      const shW = barW * (1 + spread * 2);
+      const shH = barH * (1 + spread * 1.4);
+      const shCenter = frameToThree(cx, cy + shadowY, frameW, frameH);
+      const sh = acquireZoneMesh(shW, shH, corner, trayDockShadowHex(td), shadowOp);
+      sh.position.set(shCenter.x, shCenter.y, zShadow);
+      sh.renderOrder = -8;
+      dynamicRoot.add(sh);
+      dynamicMeshes.push(sh);
+    }
+
+    if (opacity > 0.001) {
+      const dock = acquireZoneMesh(barW, barH, corner, trayDockFillHex(td), opacity);
+      dock.position.set(center.x, center.y, zDock);
+      dock.renderOrder = -6;
+      dynamicRoot.add(dock);
+      dynamicMeshes.push(dock);
+    }
+  }
+
+  /** 调试：底栏分槽（SHOW_TRAY_ZONES） */
   function addTrayZoneOverlays(layout) {
     const { frameW, frameH, cell } = layout;
     const slots = layout.tray?.slots;
@@ -643,17 +771,15 @@ export function createBoardView(scene) {
       const corner = Math.min(0.18, (cell || 20) * 0.14 / Math.min(w, h));
       const z = -0.02;
 
-      // 外框（略亮）
-      const frame = acquireZoneMesh(w, h, corner, 0x9b8cff, 0.38);
+      const frame = acquireZoneMesh(w, h, corner, 0xd0d8e0, 0.35);
       frame.position.set(center.x, center.y, z);
       dynamicRoot.add(frame);
       dynamicMeshes.push(frame);
 
-      // 内底（与棋盘空槽气质接近，略深）
       const inset = Math.max(2, (cell || 20) * 0.07);
       const iw = Math.max(2, w - inset * 2);
       const ih = Math.max(2, h - inset * 2);
-      const fill = acquireZoneMesh(iw, ih, corner * 0.9, 0x3a2f8a, 0.55);
+      const fill = acquireZoneMesh(iw, ih, corner * 0.9, 0xe8eef4, 0.4);
       fill.position.set(center.x, center.y, z + 0.002);
       dynamicRoot.add(fill);
       dynamicMeshes.push(fill);
@@ -671,8 +797,9 @@ export function createBoardView(scene) {
     if (!ghostCells?.length) return;
     const { cell, cellFill, frameW, frameH, boardCellInset } = layout;
     const size = Math.max(2, cellFill ?? cell * (1 - 2 * (boardCellInset ?? 0.012)));
-    const z = 0.12;
-    const alpha = getTune().FEEL_GHOST_ALPHA ?? 0.15;
+    // 略抬高 z，避免被空格/填充格 depth 挡住
+    const z = 0.18;
+    const alpha = getTune().FEEL_GHOST_ALPHA ?? 0.48;
     const wobble = Math.sin(nowMs * 0.038) * 0.055;
 
     for (const gcell of ghostCells) {
@@ -720,9 +847,12 @@ export function createBoardView(scene) {
     const { rows, cols } = matrixSize(matrix);
     // 用满 pitch 铺格，邻格共边合并成连续面
     const pitch = cellPitch;
-    const ox = cellPitch * 0.14;
-    const oy = cellPitch * 0.18;
-    const z = 0.04;
+    const pt = getPieceTune();
+    if ((pt.PIECE_SHADOW_OP ?? 0) <= 0.001) return;
+    const ox = cellPitch * Math.max(0, pt.PIECE_SHADOW_OX);
+    const oy = cellPitch * Math.max(0, pt.PIECE_SHADOW_OY);
+    // 必须高于 dock（z≈-0.04），块本体约 0.08
+    const z = 0.05;
 
     const positions = [];
     const indices = [];
@@ -1118,7 +1248,8 @@ export function createBoardView(scene) {
 
 
 
-    // 底栏三等分摆放区
+    // 底栏全宽白 dock（常开）；调试分槽另开 SHOW_TRAY_ZONES
+    addTrayDockBar(layout);
     if (getTune().SHOW_TRAY_ZONES >= 0.5) {
       addTrayZoneOverlays(layout);
     }
@@ -1195,6 +1326,13 @@ export function createBoardView(scene) {
     rebuildStatic(layout);
   }
 
+  /** 摆放物样式变化：先归还活跃格再清池，再重建 */
+  function rebuildPiecesStyle(layout) {
+    clearBoardFills();
+    flushFilledCellPool();
+    rebuildStatic(layout);
+  }
+
   function dispose() {
     root.position.set(0, 0, 0);
     clearList(dynamicMeshes, dynamicRoot);
@@ -1221,6 +1359,7 @@ export function createBoardView(scene) {
   return {
     root,
     rebuild,
+    rebuildPiecesStyle,
     render,
     dispose,
     hasActiveDebris,

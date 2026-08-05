@@ -68,6 +68,7 @@ import {
   rubberScrollX,
   trayScrollLimits,
 } from './tray-layout.js';
+import { applyHudTuneCss } from './hud-tune.js';
 import { getTune } from './tune.js';
 import { createBoardView } from './view.js';
 
@@ -752,23 +753,17 @@ export function createGame(opts) {
   }
 
   function syncHud() {
-    if (scoreEl) scoreEl.textContent = String(puzzleLevel || 1);
+    // 视觉稿：BEST 历史最高 · SCORE 本局分（关卡进度见 debug status）
+    if (scoreEl) scoreEl.textContent = String(scoreState.score);
     if (bestEl) bestEl.textContent = String(Math.max(bestScore, scoreState.score));
     if (statusEl) statusEl.hidden = !SHOW_DEBUG_STATUS;
     if (phaseEl) phaseEl.hidden = !SHOW_DEBUG_STATUS;
     applyScoreUi();
   }
 
-  /** 分数字号 / 垂直位置（CSS 变量，真机调参即时生效） */
+  /** 顶栏 BEST/SCORE CSS（独立 hud-tune） */
   function applyScoreUi() {
-    const t = getTune();
-    const frame = getFrameSize();
-    const fontPx = Math.max(12, Number(t.UI_SCORE_FONT_PX) || 65);
-    const shiftFrac = Number(t.UI_SCORE_OFFSET_Y) || 0;
-    const shiftPx = shiftFrac * (frame.height || 0);
-    const root = hud || document.documentElement;
-    root.style.setProperty('--ui-score-font', `${fontPx}px`);
-    root.style.setProperty('--ui-score-shift', `${shiftPx}px`);
+    applyHudTuneCss(hud);
   }
 
   /**
@@ -1493,6 +1488,15 @@ export function createGame(opts) {
   function onPointerDown(e) {
     // 只响应主指针：忽略第二指 / 多指，避免双点触控搅局
     if (e.isPrimary === false) return;
+    // 忽略调参 / UI 控件（事件目标在面板内时不进游戏逻辑）
+    const t = /** @type {Element | null} */ (e.target instanceof Element ? e.target : null);
+    if (
+      t?.closest?.(
+        '#feel-panel, .feel-panel, #hud-panel, .hud-panel, #tray-dock-panel, .tray-dock-panel, #board-panel, .board-panel, #piece-panel, .piece-panel, button, input, textarea, select, label, a',
+      )
+    ) {
+      return;
+    }
     if (editorMode) {
       const { x: fx, y: fy } = framePointFromClient(e.clientX, e.clientY);
       const cell = cellFromFramePoint(fx, fy);
@@ -1949,6 +1953,12 @@ export function createGame(opts) {
     updateStatus();
   }
 
+  /** 摆放物样式参数变化：清空 mesh 池并重绘 */
+  function applyPieceStyle() {
+    boardView.rebuildPiecesStyle?.(layout);
+    paint();
+  }
+
   // init
   if (editorMode) {
     puzzleLevel = editorLevel;
@@ -2053,6 +2063,8 @@ export function createGame(opts) {
     getLayout: () => layout,
     relayout,
     applyTune,
+    applyScoreUi,
+    applyPieceStyle,
     restart,
     dispose() {
       running = false;

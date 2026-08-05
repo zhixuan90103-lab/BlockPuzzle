@@ -4,14 +4,16 @@
   /* Design phone (logical points). Keep in sync with src/viewport.js */
   --design-w: 393;
   --design-h: 852;
-  /* 正版紫底糖果 */
-  --letterbox-bg: #2a2460;
-  --frame-bg: #6b5bdb;
+  /* 天蓝清爽 */
+  --letterbox-bg: #3a9ed0;
+  --frame-bg: #6ec4f0;
   --frame-radius: 28px;
-  --wood-light: #8b7cf0;
-  --wood-mid: #6b5bdb;
-  --wood-dark: #4a3bb5;
+  --wood-light: #8ec5f0;
+  --wood-mid: #6ec4f0;
+  --wood-dark: #5ab4e6;
   --score-cream: #ffffff;
+  --hud-label: rgba(255, 255, 255, 0.88);
+  --hud-value: #ffffff;
 
   /**
    * Safe area (Dynamic Island / home indicator).
@@ -123,8 +125,8 @@ textarea,
   background: var(--frame-bg);
   border-radius: var(--frame-radius);
   box-shadow:
-    0 0 0 1px rgba(148, 163, 184, 0.22),
-    0 18px 50px rgba(0, 0, 0, 0.45);
+    0 0 0 1px rgba(255, 255, 255, 0.28),
+    0 18px 50px rgba(30, 90, 130, 0.28);
 }
 
 /* Stage hosts the WebGPU canvas; full-bleed under island is OK (3D only) */
@@ -219,69 +221,77 @@ header {
   align-items: stretch;
 }
 
+/**
+ * 顶栏 BEST / SCORE（位置字号由 --hud-* CSS 变量 + hud-panel 调）
+ */
 .top-bar {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  min-height: 44px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 64px;
+  padding-top: var(--hud-pad-top, 40px);
+  padding-left: var(--hud-inset-x, 13.5%);
+  padding-right: var(--hud-inset-x, 13.5%);
+  column-gap: 8px;
+  transform: translate(
+    var(--hud-offset-x, 0px),
+    var(--hud-offset-y, 34px)
+  );
 }
 
-.best-score {
+.hud-stat {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  min-width: 96px;
-  height: 38px;
-  padding: 0 10px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.96);
-  text-shadow: 0 2px 0 rgba(55, 42, 150, 0.36);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-  background: rgba(57, 46, 164, 0.18);
+  gap: var(--hud-gap, 9px);
+  pointer-events: none;
+  width: 100%;
+  max-width: 140px;
 }
 
-.score-center {
-  display: flex;
+.hud-best {
+  justify-self: start;
   align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  /* 分数区不侵入下方棋盘：限制在 header 流内 */
-  max-height: 64px;
-  overflow: visible;
-  margin-top: 2px;
+  transform: translateX(var(--hud-best-nudge-x, 0px));
 }
 
+.hud-score {
+  justify-self: end;
+  align-items: center;
+  transform: translateX(var(--hud-score-nudge-x, 0px));
+}
+
+.hud-label {
+  font-size: var(--hud-label-font, 20px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hud-label);
+  /* 轻投影：低透明 + 小模糊 */
+  text-shadow:
+    0 1px 0 rgba(30, 90, 130, 0.18),
+    0 1px 3px rgba(20, 70, 110, 0.16);
+  line-height: 1.15;
+}
+
+.hud-value,
 .main-score {
-  font-size: var(--ui-score-font, 48px);
+  font-size: var(--hud-value-font, var(--ui-score-font, 50px));
   font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--score-cream);
+  letter-spacing: -0.02em;
+  color: var(--hud-value);
   font-variant-numeric: tabular-nums;
   text-shadow:
-    0 2px 0 rgba(40, 30, 100, 0.35),
-    0 4px 16px rgba(0, 0, 0, 0.25);
-  line-height: 1;
-  transform: translateY(var(--ui-score-shift, 0px));
-  will-change: transform;
-  /* 避免字号过大时视觉压到盘面 */
-  max-height: 1.05em;
-}
-
-/* 真机：分数更贴顶、不压盘 */
-body.native-app .score-center {
-  min-height: 44px;
-  max-height: 56px;
-}
-
-body.native-app .main-score {
-  font-size: var(--ui-score-font, 44px);
+    0 1px 0 rgba(30, 90, 130, 0.2),
+    0 2px 4px rgba(20, 70, 110, 0.16),
+    0 3px 8px rgba(15, 50, 80, 0.12);
+  line-height: 1.05;
 }
 
 body.native-app .top-bar {
-  min-height: 40px;
+  min-height: 60px;
 }
 
 .status {
@@ -432,12 +442,12 @@ body.native-app .top-bar {
   align-items: center;
   justify-content: space-between;
   pointer-events: auto;
-  /* 半透明紫底，透出下方盘面 */
+  /* 半透明天蓝底，透出下方盘面 */
   background: linear-gradient(
     180deg,
-    rgba(91, 79, 212, 0.78) 0%,
-    rgba(74, 59, 181, 0.82) 42%,
-    rgba(42, 36, 96, 0.88) 100%
+    rgba(90, 180, 230, 0.82) 0%,
+    rgba(70, 160, 210, 0.86) 42%,
+    rgba(50, 130, 180, 0.9) 100%
   );
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -632,26 +642,31 @@ button:active {
   pointer-events: none;
 }
 
-/* 右上角设置按钮（避开状态栏 / Dynamic Island） */
+/* 设置齿轮：默认在分数行下；位置可由 HUD 面板调 --hud-gear-* */
 .feel-panel-fab {
   pointer-events: auto;
   position: absolute;
-  top: max(10px, calc(var(--safe-top, 0px) + var(--ui-pad-top, 8px)));
-  right: max(10px, calc(var(--safe-right, 0px) + 8px));
+  top: max(
+    10px,
+    calc(
+      var(--safe-top, 0px) + var(--ui-pad-top, 8px) + var(--hud-gear-top-extra, 20px)
+    )
+  );
+  right: max(8px, calc(var(--safe-right, 0px) + var(--hud-gear-right, 25px)));
   z-index: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 50%;
-  background: rgba(42, 36, 88, 0.88);
-  color: #ffffff;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  color: #3d7ea8;
+  box-shadow: 0 2px 10px rgba(40, 110, 150, 0.18);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   cursor: pointer;
@@ -666,7 +681,7 @@ button:active {
 
 .feel-panel-fab:active {
   transform: scale(0.94);
-  background: rgba(58, 48, 120, 0.95);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .feel-panel-fab.is-open {
@@ -884,5 +899,643 @@ button:active {
 
 .feel-panel.is-collapsed .feel-panel-sheet,
 .feel-panel.is-collapsed .feel-panel-scrim {
+  display: none;
+}
+
+/* —— HUD 独立调参面板（左下角，不并入手感设置）—— */
+.hud-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 44;
+  pointer-events: none;
+}
+
+.hud-panel-fab {
+  pointer-events: auto;
+  position: absolute;
+  left: max(10px, calc(var(--safe-left, 0px) + 10px));
+  bottom: max(12px, calc(var(--safe-bottom, 0px) + 12px));
+  z-index: 5;
+  min-width: 48px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2f6f96;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  box-shadow: 0 2px 12px rgba(40, 110, 150, 0.2);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.hud-panel-fab:active {
+  transform: scale(0.96);
+}
+
+.hud-panel-scrim {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(20, 60, 90, 0.28);
+  cursor: pointer;
+}
+
+.hud-panel-sheet {
+  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(62%, 520px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  background: #f7fafc;
+  box-shadow: 0 -8px 32px rgba(20, 60, 90, 0.22);
+  padding-bottom: max(10px, var(--safe-bottom, 0px));
+  color: #1e3a4a;
+}
+
+.hud-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(30, 80, 110, 0.1);
+  flex-shrink: 0;
+}
+
+.hud-panel-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.hud-panel-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hud-panel-btn {
+  appearance: none;
+  border: 1px solid rgba(30, 80, 110, 0.18);
+  background: #fff;
+  color: #2f6f96;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.hud-panel-btn-primary {
+  background: #3d9fd4;
+  border-color: transparent;
+  color: #fff;
+}
+
+.hud-panel-body {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px 16px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.hud-panel-group {
+  margin-top: 10px;
+}
+
+.hud-panel-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(30, 80, 110, 0.55);
+  margin-bottom: 6px;
+}
+
+.hud-panel-row {
+  margin-bottom: 10px;
+}
+
+.hud-panel-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.hud-panel-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #234556;
+}
+
+.hud-panel-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3d9fd4;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.hud-panel-range {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: #3d9fd4;
+  touch-action: none;
+}
+
+.hud-panel.is-collapsed .hud-panel-sheet,
+.hud-panel.is-collapsed .hud-panel-scrim {
+  display: none;
+}
+
+/* —— Tray 白底 dock 独立调参（左下，在 HUD 按钮上方）—— */
+.tray-dock-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+}
+
+.tray-dock-panel-fab {
+  pointer-events: auto;
+  position: absolute;
+  left: max(10px, calc(var(--safe-left, 0px) + 10px));
+  bottom: max(56px, calc(var(--safe-bottom, 0px) + 56px));
+  z-index: 5;
+  min-width: 48px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2f6f96;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 12px rgba(40, 110, 150, 0.2);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tray-dock-panel-fab:active {
+  transform: scale(0.96);
+}
+
+.tray-dock-panel-scrim {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(20, 60, 90, 0.28);
+  cursor: pointer;
+}
+
+.tray-dock-panel-sheet {
+  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(58%, 480px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  background: #f7fafc;
+  box-shadow: 0 -8px 32px rgba(20, 60, 90, 0.22);
+  padding-bottom: max(10px, var(--safe-bottom, 0px));
+  color: #1e3a4a;
+}
+
+.tray-dock-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(30, 80, 110, 0.1);
+  flex-shrink: 0;
+}
+
+.tray-dock-panel-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.tray-dock-panel-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tray-dock-panel-btn {
+  appearance: none;
+  border: 1px solid rgba(30, 80, 110, 0.18);
+  background: #fff;
+  color: #2f6f96;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tray-dock-panel-btn-primary {
+  background: #3d9fd4;
+  border-color: transparent;
+  color: #fff;
+}
+
+.tray-dock-panel-body {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px 16px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.tray-dock-panel-group {
+  margin-top: 10px;
+}
+
+.tray-dock-panel-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(30, 80, 110, 0.55);
+  margin-bottom: 6px;
+}
+
+.tray-dock-panel-row {
+  margin-bottom: 10px;
+}
+
+.tray-dock-panel-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.tray-dock-panel-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #234556;
+}
+
+.tray-dock-panel-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3d9fd4;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.tray-dock-panel-range {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: #3d9fd4;
+  touch-action: none;
+}
+
+.tray-dock-panel.is-collapsed .tray-dock-panel-sheet,
+.tray-dock-panel.is-collapsed .tray-dock-panel-scrim {
+  display: none;
+}
+
+/* —— Board 棋盘独立调参（左下第三钮）—— */
+.board-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 46;
+  pointer-events: none;
+}
+
+.board-panel-fab {
+  pointer-events: auto;
+  position: absolute;
+  left: max(10px, calc(var(--safe-left, 0px) + 10px));
+  bottom: max(100px, calc(var(--safe-bottom, 0px) + 100px));
+  z-index: 5;
+  min-width: 52px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2f6f96;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 12px rgba(40, 110, 150, 0.2);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.board-panel-fab:active {
+  transform: scale(0.96);
+}
+
+.board-panel-scrim {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(20, 60, 90, 0.28);
+  cursor: pointer;
+}
+
+.board-panel-sheet {
+  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(62%, 520px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  background: #f7fafc;
+  box-shadow: 0 -8px 32px rgba(20, 60, 90, 0.22);
+  padding-bottom: max(10px, var(--safe-bottom, 0px));
+  color: #1e3a4a;
+}
+
+.board-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(30, 80, 110, 0.1);
+  flex-shrink: 0;
+}
+
+.board-panel-title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.board-panel-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.board-panel-btn {
+  appearance: none;
+  border: 1px solid rgba(30, 80, 110, 0.18);
+  background: #fff;
+  color: #2f6f96;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.board-panel-btn-primary {
+  background: #3d9fd4;
+  border-color: transparent;
+  color: #fff;
+}
+
+.board-panel-body {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px 16px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.board-panel-group {
+  margin-top: 10px;
+}
+
+.board-panel-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(30, 80, 110, 0.55);
+  margin-bottom: 6px;
+}
+
+.board-panel-row {
+  margin-bottom: 10px;
+}
+
+.board-panel-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.board-panel-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #234556;
+}
+
+.board-panel-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3d9fd4;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.board-panel-range {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: #3d9fd4;
+  touch-action: none;
+}
+
+.board-panel.is-collapsed .board-panel-sheet,
+.board-panel.is-collapsed .board-panel-scrim {
+  display: none;
+}
+
+/* —— Piece 摆放物样式独立调参 —— */
+.piece-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 47;
+  pointer-events: none;
+}
+
+.piece-panel-fab {
+  pointer-events: auto;
+  position: absolute;
+  left: max(10px, calc(var(--safe-left, 0px) + 10px));
+  bottom: max(144px, calc(var(--safe-bottom, 0px) + 144px));
+  z-index: 5;
+  min-width: 52px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2f6f96;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 12px rgba(40, 110, 150, 0.2);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.piece-panel-fab:active {
+  transform: scale(0.96);
+}
+
+.piece-panel-scrim {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(20, 60, 90, 0.28);
+  cursor: pointer;
+}
+
+.piece-panel-sheet {
+  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(68%, 560px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  background: #f7fafc;
+  box-shadow: 0 -8px 32px rgba(20, 60, 90, 0.22);
+  padding-bottom: max(10px, var(--safe-bottom, 0px));
+  color: #1e3a4a;
+}
+
+.piece-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(30, 80, 110, 0.1);
+  flex-shrink: 0;
+}
+
+.piece-panel-title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.piece-panel-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.piece-panel-btn {
+  appearance: none;
+  border: 1px solid rgba(30, 80, 110, 0.18);
+  background: #fff;
+  color: #2f6f96;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.piece-panel-btn-primary {
+  background: #3d9fd4;
+  border-color: transparent;
+  color: #fff;
+}
+
+.piece-panel-body {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px 16px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.piece-panel-group {
+  margin-top: 10px;
+}
+
+.piece-panel-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(30, 80, 110, 0.55);
+  margin-bottom: 6px;
+}
+
+.piece-panel-row {
+  margin-bottom: 10px;
+}
+
+.piece-panel-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.piece-panel-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #234556;
+}
+
+.piece-panel-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3d9fd4;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.piece-panel-range {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: #3d9fd4;
+  touch-action: none;
+}
+
+.piece-panel.is-collapsed .piece-panel-sheet,
+.piece-panel.is-collapsed .piece-panel-scrim {
   display: none;
 }

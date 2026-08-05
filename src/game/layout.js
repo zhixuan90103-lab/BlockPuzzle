@@ -8,6 +8,7 @@ import {
   LAYOUT_TRAY_BAND_CELLS as DEFAULT_TRAY_BAND_CELLS,
   TRAY_VISIBLE_SLOTS,
 } from './defaults.js';
+import { getBoardTune } from './board-tune.js';
 import { getTune } from './tune.js';
 import { buildTraySlots } from './tray-layout.js';
 
@@ -17,14 +18,16 @@ import { buildTraySlots } from './tray-layout.js';
  */
 export function computeLayout(frame, safe) {
   const t = getTune();
+  const bt = getBoardTune();
   const fw = frame.width;
   const fh = frame.height;
   if (fw < 2 || fh < 2) {
     return emptyLayout(fw, fh);
   }
 
-  const padL = safe.left + fw * t.LAYOUT_GRID_MARGIN_X;
-  const padR = safe.right + fw * t.LAYOUT_GRID_MARGIN_X;
+  const marginX = Number.isFinite(bt.BOARD_MARGIN_X) ? bt.BOARD_MARGIN_X : t.LAYOUT_GRID_MARGIN_X;
+  const padL = safe.left + fw * marginX;
+  const padR = safe.right + fw * marginX;
   const padT = safe.top + fh * (t.LAYOUT_GRID_TOP_GAP + t.LAYOUT_HUD_SCORE_H);
   const padB = safe.bottom + fh * t.LAYOUT_PAD_BOTTOM_EXTRA;
 
@@ -43,14 +46,15 @@ export function computeLayout(frame, safe) {
   const maxByW = usableW;
   const maxByH = usableH / (1 + trayStackCells / GRID);
   const boardSideMax = Math.min(maxByW, maxByH);
-  const boardSide = boardSideMax * t.LAYOUT_BOARD_SCALE;
+  const boardScale = t.LAYOUT_BOARD_SCALE * (Number.isFinite(bt.BOARD_SCALE) ? bt.BOARD_SCALE : 1);
+  const boardSide = boardSideMax * boardScale;
   const cell = boardSide / GRID;
 
   const gap = cell * gapCells;
   const trayCell = cell * scale;
 
   const gridX = padL + (usableW - boardSide) / 2;
-  const gridY = padT + fh * t.LAYOUT_BOARD_SHIFT_Y;
+  const gridY = padT + fh * (t.LAYOUT_BOARD_SHIFT_Y + (bt.BOARD_SHIFT_Y || 0));
 
   const trayX = padL;
   const trayW = usableW;
@@ -71,7 +75,9 @@ export function computeLayout(frame, safe) {
     gridY + boardSide + gap + fh * t.LAYOUT_TRAY_SHIFT_Y + packBandH * 0.5;
   const trayY = trayAnchorCy - zoneH * 0.5;
 
-  const boardCellInset = t.BOARD_CELL_INSET;
+  const boardCellInset = Number.isFinite(bt.BOARD_CELL_INSET)
+    ? bt.BOARD_CELL_INSET
+    : t.BOARD_CELL_INSET;
   const trayCellInset = t.TRAY_CELL_INSET;
   const cellFill = cell * (1 - 2 * boardCellInset);
   const cellGapPx = cell * 2 * boardCellInset;

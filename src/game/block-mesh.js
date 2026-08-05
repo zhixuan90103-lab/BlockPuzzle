@@ -3,9 +3,10 @@
  * 圆角几何全局缓存共享；filled cell 用对象池，避免每帧 new/dispose。
  */
 import * as THREE from 'three';
+import { getPieceTune } from './piece-tune.js';
 
-/** 空格/方块圆角半径相对短边比例 */
-export const CELL_CORNER_RATIO = 0.12;
+/** 空格/方块圆角半径相对短边比例（清爽软糖略圆；filled 优先读 piece-tune） */
+export const CELL_CORNER_RATIO = 0.16;
 /**
  * @deprecated 棋盘外框圆角已与 CELL_CORNER_RATIO 联动（view 内平行外扩）
  */
@@ -128,16 +129,22 @@ const FILLED_POOL_MAX = 256;
  * @param {number} color
  * @param {number} [opacity]
  */
+function filledLayerSpecs() {
+  const t = getPieceTune();
+  return [
+    { f: t.PIECE_RIM_SHADE, opMul: 1 },
+    { f: 1, opMul: 1 },
+    { f: t.PIECE_TOP_SHADE, opMul: Math.max(0, t.PIECE_TOP_OP) },
+    { f: t.PIECE_BOT_SHADE, opMul: Math.max(0, t.PIECE_BOT_OP) },
+    // glint 层强制关闭
+    { f: null, opMul: 0, white: true },
+  ];
+}
+
 export function recolorFilledCell(g, color, opacity = 1) {
   const children = g.children;
   // 0 rim, 1 main, 2 top, 3 bot, 4 glint
-  const specs = [
-    { f: 0.5, opMul: 1 },
-    { f: 1, opMul: 1 },
-    { f: 1.28, opMul: 0.55 },
-    { f: 0.65, opMul: 0.5 },
-    { f: null, opMul: 0.28, white: true },
-  ];
+  const specs = filledLayerSpecs();
   const wantTransparent = opacity < 0.999;
   for (let i = 0; i < children.length && i < specs.length; i++) {
     const mesh = children[i];
@@ -159,6 +166,11 @@ export function recolorFilledCell(g, color, opacity = 1) {
     if ('forceSinglePass' in mat) mat.forceSinglePass = mat.transparent;
     // transparent 开关变化时必须 needsUpdate，否则 WebGPU 仍走不透明通道
     if (prevT !== mat.transparent) mat.needsUpdate = true;
+    // 圆点高光层永久隐藏
+    if (i === 4) {
+      mesh.visible = false;
+      mat.opacity = 0;
+    }
   }
   g.userData.color = color;
   if (g.userData.mainMat && children[1]?.material) {
@@ -223,44 +235,54 @@ export function createBevelBlock(size, color, opacity = 1, z = 0) {
  * @returns {THREE.Group}
  */
 export function createFilledCell(size, color, opacity = 1, z = 0) {
+  const t = getPieceTune();
   const g = new THREE.Group();
   const s = Math.max(2, size);
   const rim = s;
-  const body = s * 0.98;
-  const topBandH = body * 0.26;
-  const botBandH = body * 0.18;
-  const cr = CELL_CORNER_RATIO;
+  const bodyScale = Math.max(0.85, Math.min(1, t.PIECE_BODY_SCALE));
+  const body = s * bodyScale;
+  const topBandH = body * Math.max(0, Math.min(0.45, t.PIECE_TOP_BAND));
+  const botBandH = body * Math.max(0, Math.min(0.4, t.PIECE_BOT_BAND));
+  const cr = Math.max(0.04, Math.min(0.4, t.PIECE_CORNER || CELL_CORNER_RATIO));
 
-  g.add(mkRoundedPlane(rim, rim, shade(color, 0.5), opacity, z, cr));
+  g.add(mkRoundedPlane(rim, rim, shade(color, t.PIECE_RIM_SHADE), opacity, z, cr));
 
   const main = mkRoundedPlane(body, body, color, opacity, z + 0.001, cr * 0.95);
   g.add(main);
 
+  const topOp = Math.max(0, t.PIECE_TOP_OP);
   const top = mkRoundedPlane(
-    body * 0.9,
-    topBandH,
-    shade(color, 1.28),
-    opacity * 0.55,
+    body * 0.88,
+    Math.max(0.01, topBandH || body * 0.01),
+    shade(color, t.PIECE_TOP_SHADE),
+    opacity * topOp,
     z + 0.002,
-    0.4,
+    0.45,
   );
-  top.position.y = body * 0.5 - topBandH * 0.55;
+  top.position.y = body * 0.5 - Math.max(topBandH, body * 0.01) * 0.55;
+  top.visible = topBandH > 0.001 && topOp > 0.001;
   g.add(top);
 
+  const botOp = Math.max(0, t.PIECE_BOT_OP);
   const bot = mkRoundedPlane(
-    body * 0.9,
-    botBandH,
-    shade(color, 0.65),
-    opacity * 0.5,
+    body * 0.88,
+    Math.max(0.01, botBandH || body * 0.01),
+    shade(color, t.PIECE_BOT_SHADE),
+    opacity * botOp,
     z + 0.002,
-    0.4,
+    0.45,
   );
-  bot.position.y = -(body * 0.5 - botBandH * 0.55);
+  bot.position.y = -(body * 0.5 - Math.max(botBandH, body * 0.01) * 0.55);
+  bot.visible = botBandH > 0.001 && botOp > 0.001;
   g.add(bot);
 
-  const glintS = Math.max(1, body * 0.14);
-  const glint = mkRoundedPlane(glintS, glintS, 0xffffff, opacity * 0.28, z + 0.003, 0.5);
-  glint.position.set(-body * 0.28, body * 0.28, 0);
+  // 第 5 层占位：保持 recolorFilledCell 索引结构；默认不显示圆点高光
+  const glintFrac = Math.max(0, Math.min(0.3, t.PIECE_GLINT_SIZE));
+  const glintOp = Math.max(0, t.PIECE_GLINT_OP);
+  const glintS = Math.max(0.5, body * Math.max(0.01, glintFrac || 0.01));
+  const glint = mkRoundedPlane(glintS, glintS, 0xffffff, opacity * glintOp, z + 0.003, 0.5);
+  glint.position.set(-body * 0.26, body * 0.26, 0);
+  glint.visible = false; // 产品共识：去掉圆点高光
   g.add(glint);
 
   g.userData.mainMat = main.material;
@@ -271,6 +293,19 @@ export function createFilledCell(size, color, opacity = 1, z = 0) {
   g.userData.sizeScale = 1;
   g.userData.poolKind = 'filled';
   return g;
+}
+
+/** 样式参数变化后清空对象池，强制按新几何重建 */
+export function flushFilledCellPool() {
+  while (filledPool.length) {
+    const g = filledPool.pop();
+    g?.traverse?.((o) => {
+      if (o.isMesh) {
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose?.());
+        else o.material?.dispose?.();
+      }
+    });
+  }
 }
 
 /**
@@ -336,21 +371,27 @@ export function releaseFilledCell(g) {
   }
 }
 
-export function createEmptyCell(size, colors, opacity = 1) {
+/**
+ * @param {number} size
+ * @param {{ stroke: number, fill: number, inner: number }} colors
+ * @param {number} [opacity]
+ * @param {number} [cornerRatio]
+ */
+export function createEmptyCell(size, colors, opacity = 1, cornerRatio = CELL_CORNER_RATIO) {
   const g = new THREE.Group();
   const s = Math.max(2, size);
-  const cr = CELL_CORNER_RATIO;
+  const cr = Math.max(0.04, Math.min(0.4, cornerRatio || CELL_CORNER_RATIO));
 
-  // 层差收紧，盘面格缝与 tray 同级（靠 BOARD_CELL_INSET）
+  // 扁平空格：几乎同色两层，无深凹体积
   g.add(mkRoundedPlane(s, s, colors.stroke, opacity, 0, cr));
-  g.add(mkRoundedPlane(s * 0.97, s * 0.97, colors.fill, opacity, 0.001, cr * 0.95));
+  g.add(mkRoundedPlane(s * 0.98, s * 0.98, colors.fill, opacity, 0.001, cr * 0.96));
   const inner = mkRoundedPlane(
-    s * 0.93,
-    s * 0.93,
+    s * 0.96,
+    s * 0.96,
     colors.inner,
     opacity,
     0.002,
-    cr * 0.9,
+    cr * 0.94,
   );
   g.add(inner);
 

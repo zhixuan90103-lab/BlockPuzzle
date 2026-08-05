@@ -12,7 +12,26 @@
 function isUiChrome(target) {
   if (!(target instanceof Element)) return false;
   return !!target.closest(
-    'input, textarea, button, select, label, a, .feel-panel, #feel-panel, [data-level-editor], [data-restart]',
+    [
+      'input',
+      'textarea',
+      'button',
+      'select',
+      'label',
+      'a',
+      '.feel-panel',
+      '#feel-panel',
+      '.hud-panel',
+      '#hud-panel',
+      '.tray-dock-panel',
+      '#tray-dock-panel',
+      '.board-panel',
+      '#board-panel',
+      '.piece-panel',
+      '#piece-panel',
+      '[data-level-editor]',
+      '[data-restart]',
+    ].join(', '),
   );
 }
 

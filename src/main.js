@@ -7,6 +7,10 @@ import { createRenderer } from './create-renderer.js';
 import { createFeelPanel } from './feel-panel.js';
 import { createGame } from './game/game.js';
 import { createNativeHaptics } from './native-haptics.js';
+import { createBoardPanel } from './board-panel.js';
+import { createHudPanel } from './hud-panel.js';
+import { createPiecePanel } from './piece-panel.js';
+import { createTrayDockPanel } from './tray-dock-panel.js';
 import { installTouchHygiene } from './touch-hygiene.js';
 import {
   applyNativeClass,
@@ -70,13 +74,56 @@ async function boot() {
     },
   });
 
+  // 独立 HUD 调参（BEST / SCORE 位置字号），不并入手感设置
+  const hudPanel = createHudPanel({
+    mount: frameEl,
+    hud,
+    onChange: () => {
+      game.applyScoreUi?.();
+    },
+  });
+
+  // 独立候选区白底 dock 调参
+  const trayDockPanel = createTrayDockPanel({
+    mount: frameEl,
+    onChange: () => {
+      // 白条在每帧 paint 时读取 tune，触发重绘即可
+      game.relayout?.();
+    },
+  });
+
+  // 独立棋盘调参
+  const boardPanel = createBoardPanel({
+    mount: frameEl,
+    onChange: () => {
+      game.relayout?.();
+    },
+  });
+
+  // 独立摆放物样式调参
+  const piecePanel = createPiecePanel({
+    mount: frameEl,
+    onChange: () => {
+      game.applyPieceStyle?.();
+    },
+  });
+
   if (haptics.isNativeIos()) {
     await haptics.prepare();
   }
 
   // 开发期：暴露到 window 便于控制台检查
   if (import.meta.env?.DEV !== false) {
-    window.__bb = { game, haptics, renderer, feelPanel };
+    window.__bb = {
+      game,
+      haptics,
+      renderer,
+      feelPanel,
+      hudPanel,
+      trayDockPanel,
+      boardPanel,
+      piecePanel,
+    };
   }
 }
 

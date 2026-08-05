@@ -19,14 +19,16 @@
         <div id="stage" aria-hidden="true"></div>
         <div id="hud">
           <header class="game-header">
+            <!-- 顶栏在 safe-top 之下，避开 Dynamic Island -->
             <div class="top-bar">
-              <div class="best-score" aria-label="best score">
-                <span>Best:</span>
-                <span data-best-score>0000</span>
+              <div class="hud-stat hud-best" aria-label="best score">
+                <span class="hud-label">BEST</span>
+                <span class="hud-value" data-best-score>0</span>
               </div>
-            </div>
-            <div class="score-center">
-              <div class="main-score" data-game-score aria-label="puzzle level">1</div>
+              <div class="hud-stat hud-score" aria-label="current score">
+                <span class="hud-label">SCORE</span>
+                <span class="hud-value main-score" data-game-score>0</span>
+              </div>
             </div>
             <p id="status" class="status status-debug" hidden></p>
             <p class="phase" data-game-phase hidden>M2</p>

@@ -13,24 +13,37 @@ import {
   matrixSize,
 } from '../forms.js';
 
+/**
+ * 盘面主色：每关一个主色系，仅深浅变化（PUZZLE-LEVEL-DESIGN 颜色规范）。
+ * 候选 tray 必须避开该色系。
+ */
 const BOARD_PALETTES = [
-  [0x89c95f, 0x78bd54, 0x9ad96c, 0x6fb14c],
-  [0x67b7dc, 0x4fa3d1, 0x82cbed, 0x3f90bf],
-  [0xd99a58, 0xc9843f, 0xedb36f, 0xb97535],
-  [0xb786d9, 0xa06dcc, 0xc79ce8, 0x8f5fbd],
-  [0xd96f86, 0xc95772, 0xea8fa2, 0xb94762],
-  [0x69c7ad, 0x51b89d, 0x84d9c2, 0x43a98f],
+  // blue
+  [0x6bb8e8, 0x7eb6e8, 0x8ec5f0, 0x5aa8dc],
+  // green / mint
+  [0x6fc4a8, 0x7dcfb6, 0x88d4bc, 0x5eb89a],
+  // coral / red
+  [0xf08a7a, 0xff9a8b, 0xe87a6c, 0xf5a090],
+  // yellow / butter
+  [0xf5d76e, 0xffe08a, 0xefc85c, 0xf8e09a],
+  // cyan-blue
+  [0x5eb8d4, 0x72c4dc, 0x8ed0e4, 0x4aa8c4],
+  // soft green
+  [0x7ab89a, 0x8cc4a8, 0x9ad0b4, 0x68a888],
 ];
-const PIECE_SET_COLORS = [0xf3c739, 0xee443b, 0x2296df, 0x28b965];
+/** 候选块跳脱色（跨色系；生成时再 ban 盘面主色系） */
+const PIECE_SET_COLORS = [0xf5d76e, 0xf08a7a, 0x7eb6e8, 0x7dcfb6];
 const VARIANT_PIECE_COLORS = [
-  0xf3c739,
-  0xee443b,
-  0x2296df,
-  0x28b965,
-  0xf39a2f,
-  0x54d6bd,
-  0xa98cff,
-  0xff74a6,
+  0xf5d76e, // yellow
+  0xf08a7a, // coral
+  0x7eb6e8, // blue
+  0x7dcfb6, // mint
+  0xffe08a, // pale gold
+  0xff9a8b, // soft coral
+  0x6bb8e8, // sky
+  0x88d4bc, // seafoam
+  0xc4a0e0, // soft purple (跳脱)
+  0xe0a070, // soft orange
 ];
 const BLOCKBLAST_FORMS = [
   { id: 'bb_square2', family: 200, matrix: [[1, 1], [1, 1]] },
@@ -477,8 +490,10 @@ function boardPaletteForLevel(level) {
 
 function makeBoardColor(row, col, rng, level) {
   const palette = boardPaletteForLevel(level);
-  const base = palette[(row + col + Math.floor(rng() * 2)) % palette.length];
-  return base;
+  // 同色系内深浅：邻格可有微差，不跨色系
+  const salt = Math.floor(rng() * 2);
+  const idx = (row + col + salt) % palette.length;
+  return palette[idx] || palette[0];
 }
 
 function colorFamily(color) {
@@ -873,8 +888,13 @@ export function createPuzzle(level = 1, rng = Math.random) {
     }
     for (const p of removals) stamp(full, p.form.matrix, p.row, p.col, null);
 
-    const pieceColor = PIECE_SET_COLORS[pieceGroupForLevel(level)] || PIECE_PALETTE[0];
-    const tray = shuffle(removals, rng).map((p) => makeColoredPiece(p.trayForm, pieceColor));
+    // 候选块：避开盘面主色系；彼此尽量不同系（makeTrayPieces）
+    const boardFamily = colorFamily(boardPaletteForLevel(level)[0]);
+    const tray = makeTrayPieces(
+      shuffle(removals, rng).map((p) => p.trayForm),
+      rng,
+      new Set([boardFamily]),
+    );
 
     return { board: full, tray, level, missingCells };
   }
@@ -893,9 +913,10 @@ export function createPuzzle(level = 1, rng = Math.random) {
     [5, 5],
   ];
   forms.forEach((form, i) => stamp(board, form.matrix, origins[i][0], origins[i][1], null));
+  const boardFamily = colorFamily(boardPaletteForLevel(level)[0]);
   return {
     board,
-    tray: forms.map((form) => makeColoredPiece(form, PIECE_SET_COLORS[pieceGroupForLevel(level)])),
+    tray: makeTrayPieces(forms, rng, new Set([boardFamily])),
     level,
     missingCells: forms.reduce((sum, form) => sum + countCells(form.matrix), 0),
   };
