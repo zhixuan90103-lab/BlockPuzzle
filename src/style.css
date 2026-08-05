@@ -4,9 +4,9 @@
   /* Design phone (logical points). Keep in sync with src/viewport.js */
   --design-w: 393;
   --design-h: 852;
-  /* 柔和浅蓝灰糖果壳 */
-  --letterbox-bg: #7ab0c7;
-  --frame-bg: #a6d3e0;
+  /* 沉稳蓝灰糖果壳 */
+  --letterbox-bg: #3f4b5f;
+  --frame-bg: #506177;
   --frame-radius: 28px;
   --wood-light: #8ec5f0;
   --wood-mid: #6ec4f0;
@@ -279,7 +279,7 @@ header {
 .main-score {
   font-size: var(--hud-value-font, var(--ui-score-font, 50px));
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--hud-value, #ffffff);
   font-variant-numeric: tabular-nums;
   text-shadow:

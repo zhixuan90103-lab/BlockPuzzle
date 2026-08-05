@@ -9,6 +9,7 @@ import {
   TRAY_VISIBLE_SLOTS,
 } from './defaults.js';
 import { getBoardTune } from './board-tune.js';
+import { getHudTune } from './hud-tune.js';
 import { getTune } from './tune.js';
 import { buildTraySlots } from './tray-layout.js';
 
@@ -25,10 +26,18 @@ export function computeLayout(frame, safe) {
     return emptyLayout(fw, fh);
   }
 
+  const ht = getHudTune();
+  const hudBottomPx =
+    Math.max(0, ht.HUD_PAD_TOP_PX) +
+    Math.max(0, ht.HUD_OFFSET_Y_PX) +
+    Math.max(8, ht.HUD_LABEL_FONT_PX) * 1.15 +
+    Math.max(0, ht.HUD_GAP_PX) +
+    Math.max(10, ht.HUD_VALUE_FONT_PX) * 1.05;
+  const hudTopReserve = Math.max(fh * t.LAYOUT_HUD_SCORE_H, hudBottomPx + fh * 0.018);
   const marginX = Number.isFinite(bt.BOARD_MARGIN_X) ? bt.BOARD_MARGIN_X : t.LAYOUT_GRID_MARGIN_X;
   const padL = safe.left + fw * marginX;
   const padR = safe.right + fw * marginX;
-  const padT = safe.top + fh * (t.LAYOUT_GRID_TOP_GAP + t.LAYOUT_HUD_SCORE_H);
+  const padT = safe.top + hudTopReserve + fh * t.LAYOUT_GRID_TOP_GAP;
   const padB = safe.bottom + fh * t.LAYOUT_PAD_BOTTOM_EXTRA;
 
   const usableW = Math.max(1, fw - padL - padR);

@@ -12,11 +12,11 @@ export function createDefaultPieceTune() {
     /** 主体相对外 rim 缩放 */
     PIECE_BODY_SCALE: 0.96,
     /** rim 加深系数（越大越浅/越接近本色） */
-    PIECE_RIM_SHADE: 0.82,
+    PIECE_RIM_SHADE: 0.76,
     /** 顶高光 shade */
-    PIECE_TOP_SHADE: 1.42,
+    PIECE_TOP_SHADE: 1.24,
     /** 顶高光透明度 */
-    PIECE_TOP_OP: 0.42,
+    PIECE_TOP_OP: 0.28,
     /** 顶高光带高度占比 */
     PIECE_TOP_BAND: 0.05,
     /** 底暗带 shade */

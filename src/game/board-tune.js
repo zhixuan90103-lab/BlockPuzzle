@@ -19,8 +19,8 @@ export function createDefaultBoardTune() {
     BOARD_FRAME_PAD_CELLS: 0.2,
     /** 盘面内底相对 8×8 再外扩（× cell） */
     BOARD_INNER_PAD_CELLS: 0.02,
-    /** 空格：深蓝灰井 */
-    BOARD_EMPTY_DARK: 0.2,
+    /** 空格：深蓝紫井 */
+    BOARD_EMPTY_DARK: 0.42,
     /** 空格不透明度 */
     BOARD_EMPTY_OPACITY: 0.7,
     /** 棋盘底板阴影透明度 */
@@ -31,18 +31,18 @@ export function createDefaultBoardTune() {
     BOARD_SHADOW_Y_PX: 6,
     /** 圆角相对格边 */
     BOARD_CELL_CORNER: 0.12,
-    /** 盘框 RGB — 低饱和灰蓝边 */
-    BOARD_FRAME_R: 92,
-    BOARD_FRAME_G: 126,
-    BOARD_FRAME_B: 136,
-    /** 内底 RGB — 深灰蓝盘 */
-    BOARD_FILL_R: 48,
-    BOARD_FILL_G: 68,
-    BOARD_FILL_B: 78,
+    /** 盘框 RGB — 深蓝紫边 */
+    BOARD_FRAME_R: 55,
+    BOARD_FRAME_G: 67,
+    BOARD_FRAME_B: 95,
+    /** 内底 RGB — 深海军蓝盘 */
+    BOARD_FILL_R: 31,
+    BOARD_FILL_G: 38,
+    BOARD_FILL_B: 61,
     /** 棋盘阴影 RGB */
-    BOARD_SHADOW_R: 54,
-    BOARD_SHADOW_G: 78,
-    BOARD_SHADOW_B: 88,
+    BOARD_SHADOW_R: 24,
+    BOARD_SHADOW_G: 30,
+    BOARD_SHADOW_B: 48,
   };
 }
 
@@ -112,12 +112,12 @@ export function onBoardTuneChange(fn) {
   return () => listeners.delete(fn);
 }
 
-/** 空格：深灰蓝井（冷灰蓝 ↔ 更深灰蓝，对齐浅蓝背景） */
+/** 空格：深蓝紫井（低亮度蓝紫，突出中明度彩色块） */
 export function boardEmptyColors() {
   const d = Math.max(0, Math.min(1, state.BOARD_EMPTY_DARK));
-  // 浅 ~ #405f6c  深 ~ #263f4a
-  const light = { r: 0x40, g: 0x5f, b: 0x6c };
-  const dark = { r: 0x26, g: 0x3f, b: 0x4a };
+  // 浅 ~ #252d46  深 ~ #1b2236
+  const light = { r: 0x25, g: 0x2d, b: 0x46 };
+  const dark = { r: 0x1b, g: 0x22, b: 0x36 };
   const mix = (a, b) => Math.round(a + (b - a) * d);
   const r = mix(light.r, dark.r);
   const g = mix(light.g, dark.g);

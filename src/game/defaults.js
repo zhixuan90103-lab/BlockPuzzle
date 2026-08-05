@@ -505,7 +505,7 @@ export const LAYOUT_GRID_TOP_GAP = 0.018;
 export const LAYOUT_HUD_SCORE_H = 0.13;
 /** 分数文字字号（CSS px）— 真机略小，避免压盘 */
 /** 顶栏 BEST/SCORE 数字字号（与 hud-tune 默认一致；旧 tune 兼容） */
-export const UI_SCORE_FONT_PX = 50;
+export const UI_SCORE_FONT_PX = 42;
 /**
  * 分数垂直偏移 / frame 高（+ 下移）。
  * 只动 HUD 文字；过大易压到棋盘。默认贴近顶栏。
@@ -589,45 +589,45 @@ export const TRAY_LIFT_SNAP_MS = 60;
 /** 惯性速度钳制（px/s，不是 px/ms） */
 export const TRAY_FLING_MAX_V = 1100;
 
-// —— 视觉：柔和浅蓝灰壳 + 深灰蓝盘井 + 清爽糖果块 ——
+// —— 视觉：沉稳蓝灰壳 + 深蓝紫盘井 + 中明度糖果块 ——
 export const COLOR = {
-  /** 浅蓝灰壳 */
-  bg: 0xa6d3e0,
-  bgDeep: 0x7ab0c7,
-  /** 盘托：深灰蓝 */
-  boardFill: 0x30444e,
-  boardFrame: 0x5c7e88,
-  boardFrameDark: 0x263f4a,
+  /** 沉稳蓝灰壳 */
+  bg: 0x506177,
+  bgDeep: 0x3f4b5f,
+  /** 盘托：深蓝紫 */
+  boardFill: 0x1f263d,
+  boardFrame: 0x37435f,
+  boardFrameDark: 0x1b2236,
   /**
-   * 空格：深灰蓝井（亮块压上去很清晰）
+   * 空格：深蓝紫井（亮块压上去很清晰）
    */
-  cellEmpty: 0x354f5b,
-  cellEmptyStroke: 0x263f4a,
-  cellEmptyInner: 0x405f6c,
+  cellEmpty: 0x202840,
+  cellEmptyStroke: 0x1b2236,
+  cellEmptyInner: 0x252d46,
   /** tray */
   traySlot: 0xffffff,
-  traySlotStroke: 0xbcebf3,
+  traySlotStroke: 0x66758f,
   /** 预亮 */
   preclear: 0xffe066,
   /** UI */
-  accent: 0x3bb9d6,
+  accent: 0x26b7d4,
   text: 0xffffff,
 };
 
 /**
- * 摆放物：清爽糖果色（粉/青/蓝/黄/薄荷）
+ * 摆放物：高饱和中亮度糖果色（避免手机上发白刺眼）
  */
 export const PIECE_PALETTE = [
-  0xff6f9f, // candy pink
-  0x63dce7, // aqua
-  0x69a6ff, // sky blue
-  0xffd447, // lemon
-  0x78e5bd, // mint
-  0xff8ab8, // light pink
-  0x8fc2ff, // light blue
-  0x5fd0d9, // teal
-  0xffb84d, // soft orange
-  0xb88cff, // soft violet
+  0xe94a45, // red
+  0xe97a28, // orange
+  0xe6b21a, // yellow
+  0x26b84f, // green
+  0x2f7ee8, // blue
+  0x19aec9, // cyan
+  0x9446d8, // purple
+  0xd94f83, // pink
+  0x1f9f91, // teal
+  0xb66a1e, // amber
 ];
 
 /** 调试状态默认隐藏（?debug=1 显示） */

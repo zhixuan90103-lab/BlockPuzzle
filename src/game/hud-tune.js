@@ -9,7 +9,7 @@ export function createDefaultHudTune() {
   // 默认值来自真机/面板调参（用户确认 2026-08）
   return {
     /** 数字字号 px */
-    HUD_VALUE_FONT_PX: 50,
+    HUD_VALUE_FONT_PX: 42,
     /** 标签字号 px */
     HUD_LABEL_FONT_PX: 20,
     /** label ↔ 数字间距 px */
@@ -17,7 +17,7 @@ export function createDefaultHudTune() {
     /** 顶栏额外上内边距 px（在 safe-top 之下） */
     HUD_PAD_TOP_PX: 40,
     /** 左右缩进 %（相对顶栏宽） */
-    HUD_INSET_X_PCT: 13.5,
+    HUD_INSET_X_PCT: 9,
     /** 整行垂直偏移 px（+ 下移） */
     HUD_OFFSET_Y_PX: 34,
     /** 整行水平偏移 px（+ 右移） */

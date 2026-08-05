@@ -5,14 +5,14 @@
 /** @typedef {ReturnType<typeof createDefaultBgTune>} BgTuneState */
 
 export function createDefaultBgTune() {
-  // 柔和浅蓝灰壳，降低饱和度，长时间观看不抢棋盘。
+  // 手机长时间游玩用的沉稳蓝灰壳，接近参考图的低亮度背景。
   return {
-    BG_R: 166,
-    BG_G: 211,
-    BG_B: 224,
-    LETTERBOX_R: 122,
-    LETTERBOX_G: 176,
-    LETTERBOX_B: 199,
+    BG_R: 80,
+    BG_G: 97,
+    BG_B: 119,
+    LETTERBOX_R: 63,
+    LETTERBOX_G: 75,
+    LETTERBOX_B: 95,
   };
 }
 
