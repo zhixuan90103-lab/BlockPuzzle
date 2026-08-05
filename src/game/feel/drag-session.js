@@ -21,8 +21,10 @@ export function createDragSession(opts) {
   const slot = layout.tray.slots[trayIndex];
   const { rows, cols } = matrixSize(piece.matrix);
   const tune = getTune();
-  const centerX = slot.cx + FEEL_DRAG_OFFSET_X * cell;
-  const centerY = slot.cy + tune.FEEL_DRAG_OFFSET_Y_MIN * cell;
+  const centerX =
+    (opts.slotCx ?? slot?.cx ?? fx) + FEEL_DRAG_OFFSET_X * cell;
+  const centerY =
+    (opts.slotCy ?? slot?.cy ?? fy) + tune.FEEL_DRAG_OFFSET_Y_MIN * cell;
   const originX = centerX - (cols * cell) / 2;
   const originY = centerY - (rows * cell) / 2;
   const now = performance.now();

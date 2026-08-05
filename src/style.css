@@ -32,6 +32,12 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  /* 默认禁止选择 / 长按 callout（iOS 放大镜） */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -54,17 +60,41 @@ body {
   text-size-adjust: 100%;
 }
 
-/* 游戏壳：禁止系统长按放大镜 / 选择 / 拖拽图片 */
+/* 游戏壳：禁止系统长按放大镜 / 选择 / 拖拽 / 滑动橡皮筋 */
 #letterbox,
 #phone-frame,
 #stage,
 #stage canvas,
-#hud {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+#hud,
+#hud *,
+.game-header,
+.main-score,
+.best-score,
+.death-flash,
+.game-over {
+  touch-action: none;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
   -webkit-user-drag: none;
   user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 调参 / 表单仍可操作文本 */
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+  touch-action: manipulation;
+}
+
+#stage canvas {
+  touch-action: none;
+  outline: none;
+  -webkit-touch-callout: none;
 }
 
 /* —— Desktop letterbox: contain 393:852 phone frame —— */
@@ -217,11 +247,15 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 56px;
+  min-height: 48px;
+  /* 分数区不侵入下方棋盘：限制在 header 流内 */
+  max-height: 64px;
+  overflow: visible;
+  margin-top: 2px;
 }
 
 .main-score {
-  font-size: var(--ui-score-font, 65px);
+  font-size: var(--ui-score-font, 48px);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--score-cream);
@@ -232,6 +266,22 @@ header {
   line-height: 1;
   transform: translateY(var(--ui-score-shift, 0px));
   will-change: transform;
+  /* 避免字号过大时视觉压到盘面 */
+  max-height: 1.05em;
+}
+
+/* 真机：分数更贴顶、不压盘 */
+body.native-app .score-center {
+  min-height: 44px;
+  max-height: 56px;
+}
+
+body.native-app .main-score {
+  font-size: var(--ui-score-font, 44px);
+}
+
+body.native-app .top-bar {
+  min-height: 40px;
 }
 
 .status {

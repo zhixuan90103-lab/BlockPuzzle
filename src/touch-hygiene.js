@@ -1,47 +1,104 @@
 /**
- * 关掉 Web/WKWebView 干扰手感的默认行为：
- * - 双指捏合缩放 / 多指手势
+ * 关掉 Web / WKWebView 干扰手感的默认行为：
+ * - 双指捏合 / 多指
  * - 双击放大
- * - 长按放大镜 / 文本选择 / 系统菜单
+ * - 长按放大镜 / 文本选择 / callout 菜单
+ * - 拖拽图片 / 系统上下文菜单
  * - Ctrl+滚轮缩放
  *
- * 调参面板单指滚动仍可用（只拦截多指与双击缩放）。
+ * 调参面板（input / .feel-panel 等）保留可点、可竖滑。
  */
+
+function isUiChrome(target) {
+  if (!(target instanceof Element)) return false;
+  return !!target.closest(
+    'input, textarea, button, select, label, a, .feel-panel, #feel-panel, [data-level-editor], [data-restart]',
+  );
+}
+
 export function installTouchHygiene() {
   const root = document.documentElement;
   root.style.touchAction = 'none';
+  root.style.setProperty('-webkit-user-select', 'none');
+  root.style.userSelect = 'none';
+  root.style.setProperty('-webkit-touch-callout', 'none');
+  root.style.setProperty('-webkit-tap-highlight-color', 'transparent');
 
-  /** @param {TouchEvent} e */
-  const blockMulti = (e) => {
-    if (e.touches && e.touches.length > 1) {
-      e.preventDefault();
-    }
-  };
+  // 全局锁选择 / 拖拽 / 菜单（放大镜前置）
+  document.addEventListener('selectstart', (e) => e.preventDefault(), {
+    capture: true,
+  });
+  document.addEventListener('dragstart', (e) => e.preventDefault(), {
+    capture: true,
+  });
+  document.addEventListener('contextmenu', (e) => e.preventDefault(), {
+    capture: true,
+  });
+  document.addEventListener('dblclick', (e) => e.preventDefault(), {
+    capture: true,
+  });
+  document.addEventListener(
+    'gesturestart',
+    (e) => e.preventDefault(),
+    { passive: false, capture: true },
+  );
+  document.addEventListener(
+    'gesturechange',
+    (e) => e.preventDefault(),
+    { passive: false, capture: true },
+  );
+  document.addEventListener(
+    'gestureend',
+    (e) => e.preventDefault(),
+    { passive: false, capture: true },
+  );
 
-  document.addEventListener('touchstart', blockMulti, { passive: false, capture: true });
-  document.addEventListener('touchmove', blockMulti, { passive: false, capture: true });
+  /**
+   * iOS 放大镜：必须在 touchstart 上 preventDefault（对非 UI 控件）。
+   * pointer 事件仍可正常用于游戏拖放。
+   */
+  document.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+        return;
+      }
+      if (!isUiChrome(e.target)) {
+        e.preventDefault();
+      }
+    },
+    { passive: false, capture: true },
+  );
 
-  // Safari 旧 pinch 事件
-  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
-    document.addEventListener(type, (e) => e.preventDefault(), { passive: false, capture: true });
-  }
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+        return;
+      }
+      // 非面板区域禁止页面滚动 / 下拉刷新感
+      if (!isUiChrome(e.target)) {
+        e.preventDefault();
+      }
+    },
+    { passive: false, capture: true },
+  );
 
-  // 双击放大：短时间内第二次 touchend 交给系统会触发 zoom
+  // 双击放大：短时间第二次 touchend
   let lastTouchEnd = 0;
   document.addEventListener(
     'touchend',
     (e) => {
       const now = performance.now();
-      if (now - lastTouchEnd < 350) {
+      if (now - lastTouchEnd < 350 && !isUiChrome(e.target)) {
         e.preventDefault();
       }
       lastTouchEnd = now;
     },
     { passive: false, capture: true },
   );
-
-  document.addEventListener('dblclick', (e) => e.preventDefault(), { capture: true });
-  document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
 
   document.addEventListener(
     'wheel',
@@ -51,7 +108,7 @@ export function installTouchHygiene() {
     { passive: false, capture: true },
   );
 
-  // 非主指针（第二指等）一律吞掉，避免双指并发
+  // 非主指针一律吞掉
   document.addEventListener(
     'pointerdown',
     (e) => {
@@ -59,6 +116,16 @@ export function installTouchHygiene() {
         e.preventDefault();
         e.stopPropagation();
       }
+    },
+    { capture: true },
+  );
+
+  // 保险：selection 被系统建起来就立刻清掉
+  document.addEventListener(
+    'selectionchange',
+    () => {
+      const sel = window.getSelection?.();
+      if (sel && sel.rangeCount > 0) sel.removeAllRanges();
     },
     { capture: true },
   );

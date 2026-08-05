@@ -1,7 +1,7 @@
-# Block Blast（three-webgpu-cap-shell）
+# Puzzle Clear（three-webgpu-cap-shell）
 
-**Block Blast! Classic 手感向复刻**：Three.js + **WebGPU** + Vite + **Capacitor iOS** + 自研 **NativeHaptics**。  
-在可复用壳之上实现 8×8 盘、tray、拖放投影、消行反馈（缩转 / 碎裂 / 屏震 / 3 波震动）、死亡演出、阶段发块与真机调参。
+**8×8 解密消除原型**：Three.js + **WebGPU** + Vite + **Capacitor iOS** + 自研 **NativeHaptics**。  
+当前玩法是有限块拼图：玩家用下方候选块填满盘面空洞，满盘后从最后落块位置扩散消除，并进入下一关。
 
 桌面预览使用 **手机比例框（393×852）**；真机 App 全屏 + 系统 Safe Area。
 
@@ -13,12 +13,10 @@
 |------|------|------|
 | **[AGENTS.md](./AGENTS.md)** | AI / 新窗口 | 一页纸：入口、约定 |
 | **[docs/README.md](./docs/README.md)** | 所有人 | **文档索引与规范** |
-| **[docs/FEEL-DESIGN.md](./docs/FEEL-DESIGN.md)** | 改手感/消行/震动/死亡 | 问题→规则、预设（P1–P24） |
-| **[docs/GHOST-DESIGN.md](./docs/GHOST-DESIGN.md)** | 改投影 | **投影行为 SSOT**（8 向 · 0.5/1.0/1.3） |
-| **[docs/PROJECT-HISTORY.md](./docs/PROJECT-HISTORY.md)** | 查踩坑 | 里程碑与问题全表（最新 **§17**） |
-| **[docs/DEAL-PUSH-COMPLETE.md](./docs/DEAL-PUSH-COMPLETE.md)** | 改发块 | **完整规格 SSOT** |
-| **[docs/DEAL-DESIGN.md](./docs/DEAL-DESIGN.md)** | 发块速览 | 短摘要（指向 SSOT） |
-| **[docs/RUNTIME-DEFAULTS.md](./docs/RUNTIME-DEFAULTS.md)** | 查出厂常量 | defaults 摘要（以代码为准） |
+| **[docs/PUZZLE-LEVEL-DESIGN.md](./docs/PUZZLE-LEVEL-DESIGN.md)** | 改关卡/生成器 | 解密关卡制作规范 |
+| **[docs/TRAY-INTERACTION-SPEC.md](./docs/TRAY-INTERACTION-SPEC.md)** | 改候选区/拖放 | **候选区实现 SSOT** |
+| **[docs/GHOST-POLICY.md](./docs/GHOST-POLICY.md)** | 改投影换格 | leave / soft-follow |
+| **[docs/CHANGELOG.md](./docs/CHANGELOG.md)** | 查近期改动 | 变更摘要 |
 | **[docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md)** | 查启动链 | 命令 / DOM / iOS |
 | **[docs/ENGINEERING.md](./docs/ENGINEERING.md)** | 维护底座 | Capacitor / WebGPU |
 | **本 README** | 人类上手 | 安装、dev、真机 |
@@ -30,7 +28,7 @@
 ## 本机路径
 
 ```text
-/Users/wangzhixuan/Documents/Threejs_Work/BlockBlast/three-webgpu-cap-shell
+/Users/wangzhixuan/Documents/Threejs_Work/BlockBlast_2/three-webgpu-cap-shell
 ```
 
 ---
@@ -44,7 +42,8 @@ npm run dev
 # → http://127.0.0.1:5190/
 ```
 
-应看到：竖屏框内的 Block Blast 盘面、分数 HUD、**右上角设置**（齿轮）。
+应看到：竖屏框内的 8×8 解密盘面、Best HUD、**右上角设置**（齿轮）。
+普通入口从第 1 关开始。调试指定关卡可用 `?level=7`，关卡编辑器可用 `?editor=1&level=7`。
 
 ---
 
@@ -67,7 +66,7 @@ DOM 约定（勿拆）：
 
 - `#stage`：3D canvas  
 - `#hud`：分数与安全区 UI  
-- `[data-death-flash]` / `[data-game-over]`：死亡闪红与全屏结算  
+- `[data-game-over]`：全屏结算  
 - `#feel-panel`：右上角设置入口；面板内含手感1/2 与调参  
 
 ---
@@ -76,15 +75,17 @@ DOM 约定（勿拆）：
 
 | 域 | 要点 |
 |----|------|
-| 操作 | 槽固定拿起、指速增益、仅合法投影；**放下可连拿**；消行中可再放 |
-| 投影 | 8 向 leave：空地 0.5 / 盘内贴块 1.0 / 棋盘外沿 1.3；斜向可先单轴 |
-| 消行 | 空槽常驻、方向缩转、debris、屏震；`clearExactCells` 只清本波 |
-| 震动 | 换格 / 将消预览 / 消除 **3 波 T–C**（仅 iOS 原生） |
-| 死亡 | 闪红×2 → 自下填 → 停顿 → 自上揭 → 全屏 GO |
-| 发块 | 阶段 + 局面 Intent（见 DEAL-PUSH-COMPLETE） |
-| 布局 | tray 三槽；**高度滑条中心固定**；默认区高 7 · 区样式默认隐藏 |
-| 调参 | 右上角设置 → 手感1/2 + 面板（`defaults.js` 为真源） |
-| 触控 | Web + WKWebView 关闭系统缩放/放大镜干扰 |
+| 操作 | **点转 · 横滑 · 长按/上滑拖**；盘上摘块可换位；**松在候选区**回 tray 原槽 |
+| 取消拖 | 未落盘：原槽占位洞 + scroll 还原（见 TRAY-INTERACTION-SPEC） |
+| 关卡 | 统一块池；颜色只做视觉；块数随关卡递进 |
+| 颜色 | 盘面统一主色系；候选块跳脱色 |
+| 投影 | 8 向 leave（ghost-policy）；细节以代码为准 |
+| 消除 | 满盘后全盘收集；从最后落块中心扩散 |
+| 生成 | 新关从四周到中心生成 |
+| 候选区 | 约 3.5 可见 + 槽间距；软回弹；`tray-layout.js` |
+| 震动 | 业务曲线 + iOS NativeHaptics |
+| 调参 | 右上角设置 · 手感1/2（`defaults.js` 真源） |
+| 触控 | 禁双指/双击缩放/长按放大镜（Web + WK 桥） |
 
 ---
 

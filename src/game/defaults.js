@@ -249,6 +249,10 @@ export const DEAL_FIT_TRAY_SCORE_MUL = 0.72;
 export const FEEL_DRAG_OFFSET_Y_MIN = -2.5;
 /** 大幅上移后再略抬（相对拿起姿态额外上抬量叠到 MAX）— 手感1 真机标定 */
 export const FEEL_DRAG_OFFSET_Y_MAX = -4.0;
+/**
+ * 盘上摘块回 tray：仅当手指松在候选区条带内（不做中途 flick）。
+ * 见 game.js isInTrayBand。
+ */
 /** 兼容旧名 */
 export const FEEL_DRAG_OFFSET_Y = FEEL_DRAG_OFFSET_Y_MAX;
 export const FEEL_DRAG_OFFSET_Y_ALT = -2.5;
@@ -294,6 +298,9 @@ export const FEEL_BOARD_ENGAGE_OVERLAP = 0;
 /** 投影换格瞬态震动（普通挪格，无消）— 真机面板标定 */
 export const FEEL_HAPTIC_GHOST_INTENSITY = 0.5;
 export const FEEL_HAPTIC_GHOST_SHARPNESS = 0.25;
+/** 点击旋转瞬态（默认与影格移动同量级） */
+export const FEEL_HAPTIC_ROTATE_INTENSITY = 0.5;
+export const FEEL_HAPTIC_ROTATE_SHARPNESS = 0.25;
 /** 投影到「将消」格 — 真机面板标定 */
 export const FEEL_HAPTIC_CLEAR_PREVIEW_INTENSITY = 0.7;
 export const FEEL_HAPTIC_CLEAR_PREVIEW_SHARPNESS = 0.3;
@@ -360,17 +367,16 @@ export const FEEL_GAIN_SMOOTH_TIME = 0.018;
 /** 合法投影：本色半透；非法不显示投影 */
 export const FEEL_GHOST_ALPHA = 0.15;
 /**
- * L_open：不卡边时沿 8 向离开距离（格）。0.5 = 约过中线。
- * 斜向：横、竖各自都要达到该阈（+ H_open）。
+ * L_open：不卡边时沿 8 向离开距离（格）。约过中线即换影。
+ * 2026-08：略降，半卡住仍有合法邻格时跟手更快。
  */
-export const FEEL_GHOST_OPEN_SNAP = 0.5;
+export const FEEL_GHOST_OPEN_SNAP = 0.42;
 /**
  * H_open：空地防抖半宽。离开 = L_open+H_open。
- * 产品：防抖不能闪，优先稳（略粘可接受）。
  */
-export const FEEL_GHOST_SNAP_HYST = 0.12;
+export const FEEL_GHOST_SNAP_HYST = 0.09;
 /** H_open 下限 */
-export const FEEL_GHOST_SNAP_HYST_MIN = 0.1;
+export const FEEL_GHOST_SNAP_HYST_MIN = 0.08;
 /**
  * @deprecated 设计收敛后 open 不再乘 corridor；保留键避免旧面板炸字段
  */
@@ -382,13 +388,18 @@ export const FEEL_GHOST_EDGE_HOLD = 1.3;
 /** L_board 下限 */
 export const FEEL_GHOST_EDGE_MIN = 1.3;
 /**
- * L_block：盘**内**被其它块堵住时离开距离（格）。产品：盘中卡边约 1 格。
+ * L_block：盘**内**被其它块堵住时离开距离（格）。
+ * 2026-08：0.72，贴绿块时向空侧换影更快。
  */
-export const FEEL_GHOST_BLOCK_HOLD = 1.0;
+export const FEEL_GHOST_BLOCK_HOLD = 0.72;
 /**
- * MAX_LAG：影相对 free 最大切比雪夫距离。须 &gt; max(L_board, L_block)。
+ * MAX_LAG：影相对 free 最大切比雪夫距离。须 > max(L_board, L_block)。
  */
-export const FEEL_GHOST_MAX_LAG = 1.45;
+export const FEEL_GHOST_MAX_LAG = 1.35;
+/**
+ * soft-follow：free 比 sticky 更靠近某合法邻格超过该裕量（格）时，提前换影。
+ */
+export const FEEL_GHOST_SOFT_FOLLOW_MARGIN = 0.14;
 /**
  * 指速 ≥ 参考指速 × 该系数 → 快精 free 吸附 + 速度因子顶满。
  */
@@ -411,6 +422,7 @@ export const FEEL_GHOST_DIAG_RATIO = 0.45;
  */
 export const FEEL_GHOST_DIAG_MINOR = 0.22;
 export const FEEL_DRAG_ALPHA = 0.95;
+/** 完成盘预警：仅最后一块将整盘填满时晃动（中间落子不预警） */
 export const FEEL_PRECLEAR_HIGHLIGHT = true;
 /** true：仅合法可 commit；非法不显示投影；换格用 open/edge 双阈值 */
 export const FEEL_SNAP_ONLY_VALID = true;
@@ -486,21 +498,20 @@ export const TRAY_CELL_INSET = 0.004;
 export const LAYOUT_GRID_MARGIN_X = 0.05;
 /** 分数区下沿到棋盘顶 / frame 高 */
 export const LAYOUT_GRID_TOP_GAP = 0.018;
-/** 顶部分数占位 / frame 高（几何空间，非 UI 样式） */
-export const LAYOUT_HUD_SCORE_H = 0.11;
-/** 分数文字字号（CSS px）— 真机调参默认 */
-export const UI_SCORE_FONT_PX = 65;
+/** 顶部分数占位 / frame 高（几何空间，非 UI 样式）— 略增防分数压棋盘 */
+export const LAYOUT_HUD_SCORE_H = 0.13;
+/** 分数文字字号（CSS px）— 真机略小，避免压盘 */
+export const UI_SCORE_FONT_PX = 48;
 /**
  * 分数垂直偏移 / frame 高（+ 下移）。
- * 只动 HUD 文字，不改变棋盘 pad（棋盘顶仍由 LAYOUT_HUD_SCORE_H 等决定）。
- * 真机调参默认 0.060。
+ * 只动 HUD 文字；过大易压到棋盘。默认贴近顶栏。
  */
-export const UI_SCORE_OFFSET_Y = 0.06;
+export const UI_SCORE_OFFSET_Y = 0.01;
 /**
  * 棋盘垂直偏移 / frame 高（+ 下移）。
  * 真机调参：0.035。
  */
-export const LAYOUT_BOARD_SHIFT_Y = 0.035;
+export const LAYOUT_BOARD_SHIFT_Y = 0.028;
 /**
  * tray 相对「盘底+间距」再偏移 / frame 高（+ 下移）。
  * 真机调参：0。
@@ -522,6 +533,57 @@ export const LAYOUT_TRAY_BAND_CELLS = 7;
 export const LAYOUT_PAD_BOTTOM_EXTRA = 0.04;
 /** tray 单槽可容纳的最大形状边长（格数），I5=5 */
 export const TRAY_SLOT_CELLS = 5;
+
+// —— 候选区交互（见 docs/TRAY-INTERACTION-RESEARCH-FINDINGS.md）——
+/** 一屏可见槽位数（约 3.5，露半块暗示可滑） */
+export const TRAY_VISIBLE_SLOTS = 3.5;
+/**
+ * 槽间距：在「视口/3.5」基准上再拉开中心距。
+ * 0.18 ≈ 多留 18% 空隙，避免大块（横条/T）贴在一起。
+ */
+export const TRAY_SLOT_GAP_FRAC = 0.18;
+/** 轻点旋转最大位移（px 与 cell 取 max 见代码） */
+export const TRAY_TAP_SLOP_PX = 10;
+/**
+ * 进入横滑的水平位移阈值（px，偏大一点，减少「想拖却横滑」）
+ * 实际还会与 cell 取 max，见 game scrollSlop()
+ */
+export const TRAY_SCROLL_SLOP_PX = 22;
+/**
+ * 横滑轴锁：absDx ≥ absDy * AXIS 才认横滑（>1 要求更「纯横」）
+ * 斜拖上棋盘时 dx 往往不小，故默认偏严
+ */
+export const TRAY_SCROLL_AXIS = 1.55;
+/**
+ * 在块上 armed 时：上移超过该比例×lift 阈值则禁止切入横滑（斜向拖盘优先）
+ * frame Y 向下为正，上移 dy < 0
+ */
+export const TRAY_SCROLL_BLOCK_UP_RATIO = 0.45;
+/** 长按拿起（ms） */
+export const TRAY_LONG_PRESS_MS = 280;
+/** 上滑拿起阈值（× board cell）— 略松，方便上滑/斜上拖 */
+export const TRAY_LIFT_SWIPE_UP_CELLS = 0.16;
+/** iOS 风格 rubber 系数 c */
+export const TRAY_RUBBER_C = 0.55;
+/** 少块时允许的 overscroll 暗示（× slotW） */
+export const TRAY_OVERSCROLL_HINT_SLOTS = 0.25;
+/** 逻辑 scroll 最多越出合法域的距离（× viewW），防止飞出后大回弹 */
+export const TRAY_LOGIC_OVERSCROLL_FRAC = 0.35;
+/** 惯性摩擦（1/s，指数衰减） */
+export const TRAY_FLING_FRICTION = 5.5;
+/**
+ * 回弹：欠阻尼软弹簧（节奏快、总时长短、仍过冲一点）
+ * 临界阻尼 c_crit = 2*sqrt(k)；ζ≈0.62 → 过冲还在，尾振更快收掉
+ */
+export const TRAY_BOUNCE_STIFFNESS = 120;
+/** 欠阻尼（c_crit≈21.9；取约 0.62ζ） */
+export const TRAY_BOUNCE_DAMPING = 13.5;
+/** 补位 FLIP 时长 ms */
+export const TRAY_FLIP_MS = 160;
+/** 抬起后块心吸到指尖 ms */
+export const TRAY_LIFT_SNAP_MS = 60;
+/** 惯性速度钳制（px/s，不是 px/ms） */
+export const TRAY_FLING_MAX_V = 1100;
 
 // —— 视觉：对齐正版紫底糖果（参考官方截图）——
 export const COLOR = {

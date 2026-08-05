@@ -282,6 +282,10 @@ export function createBoardView(scene) {
    * @param {number[]} indices
    */
   function acquireShadowMesh(positions, indices) {
+    // 防护：非法坐标会让 WebGPU/Three 刷 NaN bounding sphere
+    for (let i = 0; i < positions.length; i++) {
+      if (!Number.isFinite(positions[i])) return null;
+    }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(indices);
@@ -746,6 +750,7 @@ export function createBoardView(scene) {
     if (positions.length === 0) return;
 
     const mesh = acquireShadowMesh(positions, indices);
+    if (!mesh) return;
     dynamicRoot.add(mesh);
     dynamicMeshes.push(mesh);
   }
@@ -1031,6 +1036,7 @@ export function createBoardView(scene) {
       layout,
       cells,
       tray,
+      trayDraws = null,
       drag,
       hover,
       clearFx = null,
@@ -1117,42 +1123,52 @@ export function createBoardView(scene) {
       addTrayZoneOverlays(layout);
     }
 
-    // tray 摆放区：先阴影再块（拖起中的槽不画，避免残影）
-    const dragTrayIndex = drag?.trayIndex;
-    for (let i = 0; i < tray.length; i++) {
-      const piece = tray[i];
-      if (!piece || i === dragTrayIndex) continue;
-      const slot = layout.tray.slots[i];
-      if (!slot) continue;
-      if (slot.x - trayScrollX > layout.tray.x + layout.tray.w + slot.w) continue;
-      if (slot.x - trayScrollX + slot.w < layout.tray.x - slot.w) continue;
-      const { rows, cols } = matrixSize(piece.matrix);
-      const tw = cols * trayCell;
-      const th = rows * trayCell;
-      const ox = slot.cx - trayScrollX - tw / 2;
-      const oy = slot.cy - th / 2;
-      addTrayPieceShadow(
-        piece.matrix,
-        ox,
-        oy,
-        trayCell,
-        trayInset,
-        frameW,
-        frameH,
-      );
-      addPieceMeshes(
-        piece.matrix,
-        piece.cellColors || piece.color,
-        ox,
-        oy,
-        trayCell,
-        trayInset,
-        frameW,
-        frameH,
-        1,
-        1,
-        0.08,
-      );
+    // tray：绘制列表由 game 按 SSOT 算好屏幕中心（不在此减 scroll / 不写 displayCx）
+    if (Array.isArray(trayDraws) && trayDraws.length) {
+      for (const item of trayDraws) {
+        const piece = item?.piece;
+        if (!piece?.matrix) continue;
+        const cx = item.cx;
+        const cy = item.cy;
+        if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(trayCell)) {
+          continue;
+        }
+        const { rows, cols } = matrixSize(piece.matrix);
+        const tw = cols * trayCell;
+        const th = rows * trayCell;
+        const ox = cx - tw / 2;
+        const oy = cy - th / 2;
+        // 仅裁完全离开「扩展视口」的块（用块半宽，不用错误的 center+slot 公式）
+        const half = Math.max(tw, th) * 0.5;
+        const bandL = layout.tray.x - half;
+        const bandR = layout.tray.x + layout.tray.w + half;
+        if (cx < bandL || cx > bandR) continue;
+
+        addTrayPieceShadow(
+          piece.matrix,
+          ox,
+          oy,
+          trayCell,
+          trayInset,
+          frameW,
+          frameH,
+        );
+        addPieceMeshes(
+          piece.matrix,
+          piece.cellColors || piece.color,
+          ox,
+          oy,
+          trayCell,
+          trayInset,
+          frameW,
+          frameH,
+          1,
+          1,
+          0.08,
+        );
+      }
+    } else {
+      // 兼容：无 trayDraws 时不画 tray（避免旧坐标路径再引入飞屏）
     }
 
     // 拖起 / 落位吸附：棋盘 pitch + inset（满格）

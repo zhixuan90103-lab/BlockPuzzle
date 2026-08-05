@@ -1,6 +1,7 @@
 /**
- * 投影换格 + 消行震动：
+ * 投影换格 + 旋转 + 消行震动：
  * - 普通合法挪格 / 将消：瞬态
+ * - 点击旋转：瞬态（量级默认同影格）
  * - 消除：T→C→T→C→T→C（3 组「瞬态 + 连续」）
  */
 
@@ -72,6 +73,22 @@ export function createGhostHaptics(haptics, getTune) {
         sharpness: tune.FEEL_HAPTIC_GHOST_SHARPNESS ?? 0.25,
       });
     }
+  }
+
+  /** 点击旋转：瞬态，默认与影格移动同量级 */
+  function onRotate() {
+    if (!haptics.isNativeIos()) return;
+    const tune = getTune();
+    void haptics.playTransient({
+      intensity:
+        tune.FEEL_HAPTIC_ROTATE_INTENSITY ??
+        tune.FEEL_HAPTIC_GHOST_INTENSITY ??
+        0.5,
+      sharpness:
+        tune.FEEL_HAPTIC_ROTATE_SHARPNESS ??
+        tune.FEEL_HAPTIC_GHOST_SHARPNESS ??
+        0.25,
+    });
   }
 
   /**
@@ -221,6 +238,7 @@ export function createGhostHaptics(haptics, getTune) {
 
   return {
     onHover,
+    onRotate,
     onClearCommit,
     onClearFxStart,
     onClearFxEnd,

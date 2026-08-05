@@ -6,9 +6,10 @@
 import {
   GRID,
   LAYOUT_TRAY_BAND_CELLS as DEFAULT_TRAY_BAND_CELLS,
-  TRAY_SIZE,
+  TRAY_VISIBLE_SLOTS,
 } from './defaults.js';
 import { getTune } from './tune.js';
+import { buildTraySlots } from './tray-layout.js';
 
 /**
  * @param {{ width: number, height: number }} frame
@@ -53,10 +54,9 @@ export function computeLayout(frame, safe) {
 
   const trayX = padL;
   const trayW = usableW;
-  // 水平：候选条一屏约 4 个；TRAY_SIZE 可大于可见数量，通过 scrollX 横向浏览。
-  const visibleTraySlots = Math.min(4, TRAY_SIZE);
-  const colW = usableW / visibleTraySlots;
-  const zoneW = colW;
+  // 一屏约 3.5 槽；实际 slots 随 tray 块数在 game 侧 refresh。
+  const visibleTraySlots = TRAY_VISIBLE_SLOTS;
+  const slotW = trayW / visibleTraySlots;
   /** 视觉/点击高度（滑条） */
   const bandCells = Math.max(0.8, t.LAYOUT_TRAY_BAND_CELLS);
   const zoneH = Math.max(trayCell * 1.2, trayCell * bandCells);
@@ -78,21 +78,12 @@ export function computeLayout(frame, safe) {
   const trayCellFill = trayCell * (1 - 2 * trayCellInset);
   const trayCellGapPx = trayCell * 2 * trayCellInset;
 
-  /** @type {{ index: number, x: number, y: number, w: number, h: number, cx: number, cy: number }[]} */
-  const traySlots = [];
-  for (let i = 0; i < TRAY_SIZE; i++) {
-    const x = trayX + i * colW;
-    const y = trayY;
-    traySlots.push({
-      index: i,
-      x,
-      y,
-      w: zoneW,
-      h: zoneH,
-      cx: x + zoneW / 2,
-      cy: trayAnchorCy,
-    });
-  }
+  // 占位 slots（0 块）；game 按压缩列表长度 rebuild
+  const traySlots = buildTraySlots(
+    { x: trayX, w: trayW, y: trayY, h: trayH, cy: trayAnchorCy },
+    0,
+    slotW,
+  );
 
   return {
     frameW: fw,
@@ -118,6 +109,9 @@ export function computeLayout(frame, safe) {
       cellGapPx: trayCellGapPx,
       cellInset: trayCellInset,
       scale,
+      visibleSlots: visibleTraySlots,
+      slotW,
+      cy: trayAnchorCy,
       slots: traySlots,
       gapAbove: gap,
     },
@@ -153,6 +147,9 @@ function emptyLayout(fw, fh) {
       cellGapPx: 0,
       cellInset: t.TRAY_CELL_INSET,
       scale: t.FEEL_TRAY_SCALE,
+      visibleSlots: TRAY_VISIBLE_SLOTS,
+      slotW: 1,
+      cy: 0,
       slots: [],
       gapAbove: 0,
     },

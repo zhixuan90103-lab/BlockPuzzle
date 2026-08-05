@@ -2,7 +2,7 @@
 
 面向维护者与 AI：本底座的设计决策、模块职责与踩坑点。
 
-配套入口：[AGENTS.md](../AGENTS.md) · [README.md](../README.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [FEEL-DESIGN.md](./FEEL-DESIGN.md) · [PROJECT-HISTORY.md](./PROJECT-HISTORY.md)（实现与问题全景）
+配套入口：[AGENTS.md](../AGENTS.md) · [README.md](../README.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [PUZZLE-LEVEL-DESIGN.md](./PUZZLE-LEVEL-DESIGN.md)
 
 ---
 
@@ -28,7 +28,7 @@ three-webgpu-cap-shell/
 ├── docs/
 │   ├── ENGINEERING.md        # 本文件
 │   ├── ENTRYPOINTS.md        # 入口与调用链
-│   └── FEEL-DESIGN.md        # 手感/投影：问题→约束→模块
+│   └── PUZZLE-LEVEL-DESIGN.md # 解密关卡制作规范
 ├── index.html                # DOM 壳：letterbox / phone-frame / stage / hud
 ├── package.json
 ├── vite.config.js            # base: './' · port 5190 · es2022

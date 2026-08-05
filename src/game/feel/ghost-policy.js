@@ -141,6 +141,7 @@ export function createGhostPolicy(deps) {
   }
 
   function makeValidHover(row, col, matrix) {
+    // 仅「本步放完后整盘满」才有 preclear（晃动 / 清盘预警触觉）
     let preclear = { rows: [], cols: [], count: 0 };
     if (FEEL_PRECLEAR_HIGHLIGHT) {
       preclear = grid.previewClearLines(matrix, row, col);
@@ -291,6 +292,54 @@ export function createGhostPolicy(deps) {
     }
     commitSticky(session, targetRow, targetCol);
     return makeValidHover(targetRow, targetCol, matrix);
+  }
+
+  /**
+   * soft-follow：本体 free 已更靠近某合法邻格时，不必等满 leave 阈值。
+   * 解决「半卡住但向右仍有空位」时影粘旧格的迟钝感。
+   */
+  function softFollowBetter(
+    session,
+    freeColF,
+    freeRowF,
+    s,
+    matrix,
+    maxLag,
+  ) {
+    const stickyLag = lagToCell(freeColF, freeRowF, s.row, s.col);
+    const margin = Number.isFinite(getTune().FEEL_GHOST_SOFT_FOLLOW_MARGIN)
+      ? Math.max(0.05, getTune().FEEL_GHOST_SOFT_FOLLOW_MARGIN)
+      : 0.14;
+    const { rows, cols } = matrixSize(matrix);
+    const maxCol = GRID - cols;
+    const maxRow = GRID - rows;
+
+    /** @type {{ r: number, c: number, lag: number } | null} */
+    let best = null;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const r = s.row + dr;
+        const c = s.col + dc;
+        if (r < 0 || c < 0 || r > maxRow || c > maxCol) continue;
+        if (!grid.fits(matrix, r, c)) continue;
+        const lag = lagToCell(freeColF, freeRowF, r, c);
+        if (lag > maxLag) continue;
+        if (!best || lag < best.lag) best = { r, c, lag };
+      }
+    }
+    if (!best) return null;
+    // free 明显更贴邻格，才提前换（防格缝闪）
+    if (best.lag + margin >= stickyLag) return null;
+    return tryCommit(
+      session,
+      freeColF,
+      freeRowF,
+      matrix,
+      best.r,
+      best.c,
+      maxLag,
+    );
   }
 
   // —— 首次钉格 ——
@@ -466,7 +515,18 @@ export function createGhostPolicy(deps) {
       return null;
     }
 
-    // 5–6. 8 向主方向；中心死区 → 保持
+    // 5. soft-follow：邻格合法且 free 更近 → 提前换影（半卡住向空侧）
+    const soft = softFollowBetter(
+      session,
+      freeColF,
+      freeRowF,
+      s,
+      matrix,
+      maxLag,
+    );
+    if (soft) return soft;
+
+    // 6. 8 向主方向；中心死区 → 保持
     const dx = freeColF - s.col;
     const dy = freeRowF - s.row;
     const dir = primary8Dir(dx, dy, hOpen);

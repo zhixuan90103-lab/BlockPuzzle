@@ -75,7 +75,9 @@ export function createGrid() {
   }
 
   /**
-   * 模拟放置后将满的行/列（不改盘面）— preclear
+   * 模拟放置后的「完成盘」预警（不改盘面）。
+   * 拼图填满玩法：只有本步放完后整盘全满时才有 preclear（与 game 落子后 isBoardFull 清盘一致）。
+   * 中间落子即使凑满若干行/列也不预警、不晃动。
    */
   function previewClearLines(matrix, originRow, originCol) {
     if (!fits(matrix, originRow, originCol)) {
@@ -88,24 +90,16 @@ export function createGrid() {
         if (matrix[r][c]) sim[originRow + r][originCol + c] = 1;
       }
     }
-    /** @type {number[]} */
-    const fullRows = [];
-    /** @type {number[]} */
-    const fullCols = [];
     for (let r = 0; r < GRID; r++) {
-      if (sim[r].every((v) => v != null)) fullRows.push(r);
-    }
-    for (let c = 0; c < GRID; c++) {
-      let full = true;
-      for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
         if (sim[r][c] == null) {
-          full = false;
-          break;
+          return { rows: [], cols: [], count: 0 };
         }
       }
-      if (full) fullCols.push(c);
     }
-    return { rows: fullRows, cols: fullCols, count: fullRows.length + fullCols.length };
+    // 整盘将满：与落子清盘一致，标全部行（paintBoard / ghost 全格晃动）
+    const allRows = Array.from({ length: GRID }, (_, i) => i);
+    return { rows: allRows, cols: [], count: GRID };
   }
 
   function clearLines(lineInfo) {

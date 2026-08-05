@@ -24,7 +24,19 @@ import {
   GRID,
   PIECE_PALETTE,
   SHOW_DEBUG_STATUS,
+  TRAY_BOUNCE_DAMPING,
+  TRAY_BOUNCE_STIFFNESS,
+  TRAY_FLIP_MS,
+  TRAY_FLING_FRICTION,
+  TRAY_FLING_MAX_V,
+  TRAY_LIFT_SWIPE_UP_CELLS,
+  TRAY_LOGIC_OVERSCROLL_FRAC,
+  TRAY_LONG_PRESS_MS,
+  TRAY_SCROLL_AXIS,
+  TRAY_SCROLL_BLOCK_UP_RATIO,
+  TRAY_SCROLL_SLOP_PX,
   TRAY_SIZE,
+  TRAY_TAP_SLOP_PX,
 } from './defaults.js';
 import {
   chaseTargetOnPointer,
@@ -44,6 +56,18 @@ import {
 } from './pieces.js';
 import { createPuzzle } from './puzzle/generator.js';
 import { createScoreState } from './score.js';
+import {
+  buildScreenSlots,
+  clampScroll,
+  createTrayMetrics,
+  easeOutCubic,
+  insertIndexFromFx,
+  lerp,
+  pieceScreenCenterX,
+  pieceScreenLeftX,
+  rubberScrollX,
+  trayScrollLimits,
+} from './tray-layout.js';
 import { getTune } from './tune.js';
 import { createBoardView } from './view.js';
 
@@ -86,12 +110,43 @@ export function createGame(opts) {
   let puzzleLevel = 0;
   let puzzle = null;
 
-  /** @type {(import('./forms.js').PieceDef|null)[]} */
-  let tray = [null, null, null];
+  /**
+   * 候选列表。拖起未落盘时原槽可为 null（占位），其它块位置/scroll 不变；
+   * 落盘成功后再压实去掉洞。
+   * @type {(import('./forms.js').PieceDef|null)[]}
+   */
+  let tray = [];
   let trayScrollX = 0;
-  /** @type {null | { pointerId: number, startFx: number, startFy: number, startScrollX: number, moved: boolean }} */
-  let trayScrollDrag = null;
-  /** @type {{ id: number, piece: import('./forms.js').PieceDef, trayIndex: number, originRow: number, originCol: number, cells: {row:number,col:number}[] }[]} */
+  let trayScrollV = 0;
+  /** @type {'idle' | 'dragging' | 'gliding' | 'bouncing'} */
+  let trayScrollPhase = 'idle';
+  let trayScrollLastT = 0;
+  let nextPieceUid = 1;
+  /**
+   * 指针在 tray 上的预备态（点转 / 横滑 / 长按·上滑拖）
+   * @type {null | {
+   *   pointerId: number,
+   *   startFx: number,
+   *   startFy: number,
+   *   startScrollX: number,
+   *   trayIndex: number,
+   *   pieceUid: number | string,
+   *   t0: number,
+   *   mode: 'armed' | 'scroll',
+   *   longPressFired: boolean,
+   *   lastFx: number,
+   *   lastFy: number,
+   *   lastT: number,
+   * }}
+   */
+  let trayPointer = null;
+  /**
+   * FLIP 附加偏移（屏幕 px）：drawX = baseScreenX + offset
+   * 动画 offset: from → 0，绝不把绝对坐标写进 piece
+   * @type {Map<string | number, { from: number, start: number, dur: number }>}
+   */
+  let trayFlip = new Map();
+  /** @type {{ id: number, piece: import('./forms.js').PieceDef, pieceUid?: number|string, trayIndex: number, originRow: number, originCol: number, cells: {row:number,col:number}[] }[]} */
   let placedPieces = [];
   let nextPlacedId = 1;
 
@@ -186,13 +241,214 @@ export function createGame(opts) {
     bestScore = 0;
   }
 
+  function ensurePieceUid(piece) {
+    if (piece == null) return piece;
+    if (piece.uid == null) {
+      piece.uid = nextPieceUid++;
+    }
+    return piece;
+  }
+
+  function normalizeTrayList(list) {
+    return (list || [])
+      .filter(Boolean)
+      .slice(0, TRAY_SIZE)
+      .map((p) => ensurePieceUid({ ...p }));
+  }
+
+  function trayMetrics() {
+    return createTrayMetrics(layout.tray, tray.length);
+  }
+
+  function scrollLimits() {
+    return trayScrollLimits(trayMetrics());
+  }
+
+  /**
+   * 逻辑 scroll 允许的短暂越界范围（跟手/滑行），禁止无界飞出。
+   * 绘制永远用 visualScrollX()（rubber 映射），整排不会因 scroll 上千而消失。
+   */
+  function logicScrollBounds() {
+    const m = trayMetrics();
+    const lim = trayScrollLimits(m);
+    const pad = Math.max(24, m.viewW * TRAY_LOGIC_OVERSCROLL_FRAC);
+    return { min: lim.min - pad, max: lim.max + pad, lim, viewW: m.viewW };
+  }
+
+  /** 绘制 / 命中专用：出界一律 rubber，空闲硬夹 */
+  function visualScrollX() {
+    if (!Number.isFinite(trayScrollX)) return 0;
+    const m = trayMetrics();
+    const lim = trayScrollLimits(m);
+    if (trayScrollPhase === 'idle') {
+      return clampScroll(trayScrollX, lim);
+    }
+    // dragging / gliding / bouncing：逻辑可暂出界，视觉永远有界
+    return rubberScrollX(trayScrollX, lim.min, lim.max, m.viewW);
+  }
+
+  /** 逻辑 scroll 清洗 */
+  function sanitizeTrayScroll() {
+    if (!Number.isFinite(trayScrollX)) trayScrollX = 0;
+    if (!Number.isFinite(trayScrollV)) trayScrollV = 0;
+    const m = trayMetrics();
+    const lim = trayScrollLimits(m);
+    const b = logicScrollBounds();
+    if (
+      m.fits &&
+      trayScrollPhase !== 'dragging' &&
+      trayScrollPhase !== 'gliding' &&
+      trayScrollPhase !== 'bouncing'
+    ) {
+      trayScrollX = 0;
+      trayScrollV = 0;
+      return;
+    }
+    if (trayScrollPhase === 'idle') {
+      trayScrollX = clampScroll(trayScrollX, lim);
+    } else {
+      // 任何动态相位都钳在有限 overscroll 内
+      trayScrollX = Math.min(b.max, Math.max(b.min, trayScrollX));
+    }
+  }
+
+  /**
+   * 同步 layout.tray.slots —— 仅调试区框；绘制走 trayDrawList()。
+   */
+  function refreshTraySlots() {
+    if (!layout?.tray) return;
+    const m = trayMetrics();
+    layout.tray.slotW = m.slotW;
+    layout.tray.cy = m.cy;
+    layout.tray.slots = buildScreenSlots(m, 0);
+    sanitizeTrayScroll();
+  }
+
+  function flipOffsetAt(uid, nowMs) {
+    if (uid == null) return 0;
+    const anim = trayFlip.get(uid);
+    if (!anim) return 0;
+    if (!Number.isFinite(anim.from)) {
+      trayFlip.delete(uid);
+      return 0;
+    }
+    const t = (nowMs - anim.start) / Math.max(1, anim.dur);
+    if (t >= 1) {
+      trayFlip.delete(uid);
+      return 0;
+    }
+    return lerp(anim.from, 0, easeOutCubic(t));
+  }
+
+  /** 屏幕中心 X（含 FLIP 偏移，用视觉 scroll） */
+  function screenCxAt(index, nowMs = performance.now()) {
+    const m = trayMetrics();
+    const p = tray[index];
+    const off = p?.uid != null ? flipOffsetAt(p.uid, nowMs) : 0;
+    return pieceScreenCenterX(m, index, visualScrollX(), off);
+  }
+
+  function captureScreenCenters() {
+    /** @type {Map<string|number, number>} */
+    const map = new Map();
+    const now = performance.now();
+    const m = trayMetrics();
+    const scroll = visualScrollX();
+    for (let i = 0; i < tray.length; i++) {
+      const p = tray[i];
+      if (p?.uid == null) continue;
+      map.set(p.uid, pieceScreenCenterX(m, i, scroll, flipOffsetAt(p.uid, now)));
+    }
+    return map;
+  }
+
+  /**
+   * 列表变更后：scroll 锚定（仅内容超出时）+ FLIP 偏移
+   * @param {Map<string|number, number>} prevCenters
+   * @param {string|number|null} [preferUid]
+   */
+  function afterTrayListChange(prevCenters, preferUid = null) {
+    const m = trayMetrics();
+    const lim = trayScrollLimits(m);
+
+    if (m.fits) {
+      trayScrollX = 0;
+      trayScrollV = 0;
+      trayScrollPhase = 'idle';
+    } else {
+      let anchorUid = preferUid;
+      if (anchorUid == null || !tray.some((p) => p.uid === anchorUid)) {
+        for (const p of tray) {
+          if (p?.uid != null && prevCenters.has(p.uid)) {
+            anchorUid = p.uid;
+            break;
+          }
+        }
+      }
+      if (anchorUid != null) {
+        const idx = tray.findIndex((p) => p.uid === anchorUid);
+        const want = prevCenters.get(anchorUid);
+        if (idx >= 0 && want != null && Number.isFinite(want)) {
+          // want = viewX + contentCenter - scroll  =>  scroll = viewX + contentCenter - want
+          const step = m.stride > 0 ? m.stride : m.slotW;
+          const contentCx = m.pad + (idx + 0.5) * step;
+          trayScrollX = m.viewX + contentCx - want;
+        }
+      }
+      trayScrollX = clampScroll(trayScrollX, lim);
+    }
+
+    // FLIP：offset = oldScreen - newBaseScreen，再收到 0
+    const now = performance.now();
+    trayFlip = new Map();
+    for (let i = 0; i < tray.length; i++) {
+      const p = tray[i];
+      if (p?.uid == null) continue;
+      const base = pieceScreenCenterX(m, i, trayScrollX, 0);
+      const old = prevCenters.has(p.uid) ? prevCenters.get(p.uid) : base;
+      if (old == null || !Number.isFinite(old) || !Number.isFinite(base)) continue;
+      const from = old - base;
+      if (Math.abs(from) < 0.5) continue;
+      trayFlip.set(p.uid, { from, start: now, dur: TRAY_FLIP_MS });
+    }
+    refreshTraySlots();
+  }
+
+  function applyTrayListChange(mutator, preferAnchorUid = null) {
+    const prev = captureScreenCenters();
+    mutator();
+    afterTrayListChange(prev, preferAnchorUid);
+  }
+
+  /** 供 view 绘制的扁平列表（唯一绘制真源；永远用 visualScroll） */
+  function trayDrawList(nowMs = performance.now()) {
+    const m = trayMetrics();
+    const scroll = visualScrollX();
+    /** @type {{ piece: any, cx: number, cy: number, slotW: number }[]} */
+    const list = [];
+    for (let i = 0; i < tray.length; i++) {
+      const piece = tray[i];
+      if (!piece) continue;
+      if (drag?.pieceUid != null && piece.uid === drag.pieceUid) continue;
+      const off = flipOffsetAt(piece.uid, nowMs);
+      const cx = pieceScreenCenterX(m, i, scroll, off);
+      if (!Number.isFinite(cx) || !Number.isFinite(m.cy)) continue;
+      list.push({ piece, cx, cy: m.cy, slotW: m.slotW });
+    }
+    return list;
+  }
+
   function startNextPuzzle() {
     puzzleLevel += 1;
     puzzle = createPuzzle(puzzleLevel);
     grid.load(puzzle.board);
-    tray = puzzle.tray.slice(0, TRAY_SIZE);
-    while (tray.length < TRAY_SIZE) tray.push(null);
+    tray = normalizeTrayList(puzzle.tray);
     trayScrollX = 0;
+    trayScrollV = 0;
+    trayScrollPhase = 'idle';
+    trayFlip = new Map();
+    trayPointer = null;
+    refreshTraySlots();
     placedPieces = [];
     boardRevealFx = { start: performance.now(), duration: 500, stagger: 54 };
     lockInput(170);
@@ -209,7 +465,7 @@ export function createGame(opts) {
   }
 
   function trayEmpty() {
-    return tray.every((p) => p == null);
+    return !tray.some((p) => p != null);
   }
 
   function updateBestScore() {
@@ -471,6 +727,10 @@ export function createGame(opts) {
   function restart() {
     drag = null;
     hover = null;
+    trayPointer = null;
+    trayScrollV = 0;
+    trayScrollPhase = 'idle';
+    trayFlip = new Map();
     clearFx = null;
     clearQueue = [];
     boardRevealFx = null;
@@ -551,8 +811,10 @@ export function createGame(opts) {
   function rotatePieceCW(piece) {
     const matrix = rotateMatrixCW(piece.matrix);
     const colorGrid = piece.cellColors || piece.matrix.map((row) => row.map((v) => (v ? piece.color : 0)));
+    const uid = piece.uid;
     return {
       ...piece,
+      uid,
       id: `${piece.id}_r${((piece.rotationTurns || 0) + 1) % 4}`,
       matrix,
       cellColors: rotateMatrixCW(colorGrid),
@@ -600,9 +862,10 @@ export function createGame(opts) {
 
   function paint() {
     const nowMs = performance.now();
+    sanitizeTrayScroll();
     /** @type {number[][] | null} */
     let cellOpacity = deathFx?.displayOpacity ?? null;
-    /** @type {null | { piece: any, frameX: number, frameY: number, scale: number, trayIndex?: number, alpha?: number }} */
+    /** @type {null | { piece: any, frameX: number, frameY: number, scale: number, trayIndex?: number, pieceUid?: number|string, alpha?: number }} */
     let dragPaint = null;
 
     if (deathFx) {
@@ -614,6 +877,7 @@ export function createGame(opts) {
         frameY: drag.frameY,
         scale: drag.scale,
         trayIndex: drag.trayIndex,
+        pieceUid: drag.pieceUid,
       };
     } else if (placeSnap) {
       const dur = Math.max(1, placeSnap.duration);
@@ -659,7 +923,8 @@ export function createGame(opts) {
       layout,
       cells: deathFx?.displayCells ?? grid.cells,
       cellOpacity,
-      tray: deathFx ? [null, null, null] : tray,
+      tray: deathFx ? [] : tray,
+      trayDraws: deathFx ? [] : trayDrawList(nowMs),
       drag: dragPaint,
       hover: deathFx || placeSnap ? null : hover,
       clearFx: deathFx ? null : clearFx,
@@ -921,47 +1186,85 @@ export function createGame(opts) {
     }
   }
 
-  function clampTrayScroll(x) {
-    const slots = layout.tray.slots;
-    if (!slots?.length) return 0;
-    const last = slots[slots.length - 1];
-    const contentRight = last.x + last.w;
-    const max = Math.max(0, contentRight - (layout.tray.x + layout.tray.w));
-    return Math.min(max, Math.max(0, x));
+  function clampTrayScrollHard(x) {
+    return clampScroll(x, scrollLimits());
   }
 
-  /** 正版：底栏三等分区优先，再回退块包围盒 */
+  /** 跟手：只存逻辑位置，且钳在有限 overscroll 内 */
+  function applyScrollDrag(rawX) {
+    if (!Number.isFinite(rawX)) {
+      trayScrollX = 0;
+      return;
+    }
+    const b = logicScrollBounds();
+    trayScrollX = Math.min(b.max, Math.max(b.min, rawX));
+  }
+
+  function tapSlop() {
+    return Math.max(TRAY_TAP_SLOP_PX, layout.cell * 0.22);
+  }
+
+  function scrollSlop() {
+    // 相对格宽也抬一点，真机小抖不易进横滑
+    return Math.max(TRAY_SCROLL_SLOP_PX, (layout.cell || 20) * 0.38);
+  }
+
+  function scrollAxis() {
+    return TRAY_SCROLL_AXIS;
+  }
+
+  function liftSwipeUp() {
+    return Math.max(10, layout.cell * TRAY_LIFT_SWIPE_UP_CELLS);
+  }
+
+  /** 有明显上移（朝棋盘）时不允许从 armed 切入横滑 */
+  function isArmedMovingTowardBoard(dy) {
+    const up = -dy; // Y 向下为正
+    if (up <= 0) return false;
+    const block =
+      liftSwipeUp() *
+      (getTune().TRAY_SCROLL_BLOCK_UP_RATIO ?? TRAY_SCROLL_BLOCK_UP_RATIO);
+    return up >= Math.max(6, block);
+  }
+
+  /** 与绘制同一套 visualScroll 命中 */
   function hitTrayIndex(fx, fy) {
-    for (const slot of layout.tray.slots) {
-      const sx = slot.x - trayScrollX;
+    const m = trayMetrics();
+    if (tray.length === 0) return -1;
+    const scroll = visualScrollX();
+
+    // 1) 槽矩形
+    for (let i = 0; i < tray.length; i++) {
+      if (!tray[i]) continue;
+      const left = pieceScreenLeftX(m, i, scroll);
       if (
-        fx >= sx &&
-        fx <= sx + slot.w &&
-        fy >= slot.y &&
-        fy <= slot.y + slot.h &&
-        tray[slot.index]
+        fx >= left &&
+        fx <= left + m.slotW &&
+        fy >= m.viewY &&
+        fy <= m.viewY + m.viewH
       ) {
-        return slot.index;
+        return i;
       }
     }
+    // 2) 包围盒 + slop
     const tc = layout.tray.cell;
     const slop = Math.max(layout.cell * FEEL_HIT_SLOP, tc * 0.4);
     let best = -1;
     let bestDist = Infinity;
     for (let i = 0; i < tray.length; i++) {
       const piece = tray[i];
-      const slot = layout.tray.slots[i];
-      if (!piece || !slot) continue;
+      if (!piece) continue;
       const { rows, cols } = matrixSize(piece.matrix);
       const tw = cols * tc;
       const th = rows * tc;
-      const cx = slot.cx - trayScrollX;
+      const cx = pieceScreenCenterX(m, i, scroll, flipOffsetAt(piece.uid, performance.now()));
+      const cy = m.cy;
       const left = cx - tw / 2 - slop;
       const right = cx + tw / 2 + slop;
-      const top = slot.cy - th / 2 - slop;
-      const bottom = slot.cy + th / 2 + slop;
+      const top = cy - th / 2 - slop;
+      const bottom = cy + th / 2 + slop;
       if (fx >= left && fx <= right && fy >= top && fy <= bottom) {
-        const d = (fx - cx) ** 2 + (fy - slot.cy) ** 2;
+        const d = (fx - cx) ** 2 + (fy - cy) ** 2;
         if (d < bestDist) {
           bestDist = d;
           best = i;
@@ -969,6 +1272,184 @@ export function createGame(opts) {
       }
     }
     return best;
+  }
+
+  /**
+   * 从 tray 拿起：原槽留 null 占位，其它块与 scroll 不动。
+   * @param {number} index
+   * @param {number} pointerId
+   * @param {number} fx
+   * @param {number} fy
+   */
+  function liftPieceFromTray(index, pointerId, fx, fy) {
+    const piece = tray[index];
+    if (!piece) return false;
+    const savedScroll = Number.isFinite(trayScrollX) ? trayScrollX : 0;
+    const liftCx = screenCxAt(index);
+    const liftCy = trayMetrics().cy;
+    const pieceUid = piece.uid;
+    // 占位洞：不 reflow、不改 scroll
+    tray[index] = null;
+    trayFlip = new Map();
+    trayScrollX = savedScroll;
+    trayScrollV = 0;
+    trayScrollPhase = 'idle';
+    drag = createDragSession({
+      layout,
+      piece,
+      trayIndex: index,
+      pointerId,
+      fx,
+      fy,
+      getTune,
+      slotCx: liftCx,
+      slotCy: liftCy,
+    });
+    drag.pieceUid = pieceUid;
+    drag.homeTrayIndex = index;
+    drag.savedTrayScrollX = savedScroll;
+    drag.tapStartFx = fx;
+    drag.tapStartFy = fy;
+    drag.liftedFromTray = true;
+    trayPointer = null;
+    hover = null;
+    paint();
+    return true;
+  }
+
+  /**
+   * 未落盘取消：填回原洞 + 恢复 scroll（候选区看起来像没拖过）
+   */
+  function restoreLiftedTrayPiece(session) {
+    if (!session?.piece) return;
+    ensurePieceUid(session.piece);
+    const home = homeIndexForDrag(session);
+    if (
+      home != null &&
+      home >= 0 &&
+      home < tray.length &&
+      tray[home] == null
+    ) {
+      tray[home] = session.piece;
+    } else if (home != null && home >= 0 && home < tray.length) {
+      tray[home] = session.piece;
+    } else {
+      tray.push(session.piece);
+    }
+    trayFlip = new Map();
+    if (
+      session.savedTrayScrollX != null &&
+      Number.isFinite(session.savedTrayScrollX)
+    ) {
+      trayScrollX = session.savedTrayScrollX;
+    }
+    trayScrollV = 0;
+    trayScrollPhase = 'idle';
+    trayScrollX = clampScroll(trayScrollX, scrollLimits());
+    refreshTraySlots();
+  }
+
+  /** 落盘成功后去掉 null 洞并正常 reflow */
+  function compactTrayAfterPlace() {
+    if (!tray.some((p) => p == null)) return;
+    applyTrayListChange(() => {
+      tray = tray.filter((p) => p != null);
+    });
+  }
+
+  /**
+   * 回 tray（盘上摘下等：按原位插入，可 reflow）。
+   * @param preferredIndex 有则插回原槽；无则按手指 x 插。
+   */
+  function insertPieceIntoTray(piece, fx, preferredIndex = null) {
+    ensurePieceUid(piece);
+    let idx;
+    if (preferredIndex != null && Number.isFinite(Number(preferredIndex))) {
+      idx = Math.max(0, Math.min(tray.length, Math.round(Number(preferredIndex))));
+    } else {
+      const m = trayMetrics();
+      idx = insertIndexFromFx(fx, m, trayScrollX);
+    }
+    applyTrayListChange(() => {
+      tray.splice(idx, 0, piece);
+    }, piece.uid);
+  }
+
+  /** 拖回 tray 时优先用原候选位，避免乱序 */
+  function homeIndexForDrag(session) {
+    if (session == null) return null;
+    if (session.homeTrayIndex != null && Number.isFinite(Number(session.homeTrayIndex))) {
+      return Number(session.homeTrayIndex);
+    }
+    if (session.returningFromBoard && session.originalPlaced?.trayIndex != null) {
+      return Number(session.originalPlaced.trayIndex);
+    }
+    if (session.trayIndex != null && session.trayIndex >= 0) {
+      return Number(session.trayIndex);
+    }
+    return null;
+  }
+
+  /**
+   * 惯性 / 回弹。
+   * trayScrollV 单位：px/s（不是 px/ms）。
+   * 绘制始终 visualScrollX()，逻辑位置再大也只 rubber 出一点。
+   */
+  function tickTrayScroll(nowMs) {
+    if (trayScrollPhase !== 'gliding' && trayScrollPhase !== 'bouncing') return;
+    if (!trayScrollLastT) trayScrollLastT = nowMs;
+    let dt = (nowMs - trayScrollLastT) / 1000;
+    trayScrollLastT = nowMs;
+    if (dt <= 0) return;
+    dt = Math.min(0.032, dt);
+    const lim = scrollLimits();
+    const b = logicScrollBounds();
+    const { min, max } = lim;
+
+    if (trayScrollPhase === 'gliding') {
+      // v: px/s → 位移 px
+      trayScrollX += (trayScrollV || 0) * dt;
+      trayScrollV *= Math.exp(-TRAY_FLING_FRICTION * dt);
+      if (!Number.isFinite(trayScrollX)) trayScrollX = 0;
+      if (!Number.isFinite(trayScrollV)) trayScrollV = 0;
+      // 逻辑位置封顶，避免越积越大、回弹「从天而降」
+      trayScrollX = Math.min(b.max, Math.max(b.min, trayScrollX));
+      if (trayScrollX <= min || trayScrollX >= max) {
+        // 贴边或越界 → 回弹（带一点剩余速度）
+        trayScrollPhase = 'bouncing';
+      } else if (Math.abs(trayScrollV) < 30) {
+        trayScrollV = 0;
+        trayScrollX = clampScroll(trayScrollX, lim);
+        trayScrollPhase = 'idle';
+      }
+      paint();
+      return;
+    }
+
+    // bouncing：快弹簧 + 欠阻尼过冲（越过 min/max 再弹回定住）
+    const target = trayScrollX < min ? min : trayScrollX > max ? max : trayScrollX;
+    // 过冲带略收：节奏更快，过冲仍可见
+    const overshootPad = Math.max(8, b.viewW * 0.09);
+    const springMin = min - overshootPad;
+    const springMax = max + overshootPad;
+
+    const x = trayScrollX - target;
+    // a = -k*x - c*v；k 大 → 周期短（节奏快）
+    const a = -TRAY_BOUNCE_STIFFNESS * x - TRAY_BOUNCE_DAMPING * (trayScrollV || 0);
+    trayScrollV = (trayScrollV || 0) + a * dt;
+    trayScrollX += trayScrollV * dt;
+    if (!Number.isFinite(trayScrollX)) trayScrollX = target;
+    if (!Number.isFinite(trayScrollV)) trayScrollV = 0;
+    trayScrollX = Math.min(springMax, Math.max(springMin, trayScrollX));
+
+    // 更早收束，缩短总回弹时间（过冲至少完整走完半拍后再掐）
+    const inside = trayScrollX >= min - 0.6 && trayScrollX <= max + 0.6;
+    if (inside && Math.abs(trayScrollX - target) < 1.1 && Math.abs(trayScrollV) < 120) {
+      trayScrollX = target;
+      trayScrollV = 0;
+      trayScrollPhase = 'idle';
+    }
+    paint();
   }
 
   function resolveHover() {
@@ -1034,45 +1515,68 @@ export function createGame(opts) {
         e.preventDefault();
         stage.setPointerCapture?.(e.pointerId);
         const grabCell = layout.cellRect(placed.originCol, placed.originRow);
+        const { rows, cols } = matrixSize(placed.piece.matrix);
+        // 盘上几何中心；createDragSession 会叠 FEEL_DRAG_OFFSET_* 抬起姿势（与 tray 一致）
+        const boardCx = grabCell.x + (cols * layout.cell) / 2;
+        const boardCy = grabCell.y + (rows * layout.cell) / 2;
         removePlacedPiece(placed);
         drag = createDragSession({
           layout,
           piece: placed.piece,
-          trayIndex: placed.trayIndex,
+          trayIndex: placed.trayIndex ?? 0,
           pointerId: e.pointerId,
           fx,
           fy,
           getTune,
+          slotCx: boardCx,
+          slotCy: boardCy,
         });
-        drag.frameX = grabCell.x;
-        drag.frameY = grabCell.y;
-        drag.targetOriginX = grabCell.x;
-        drag.targetOriginY = grabCell.y;
-        drag.baseCenterX = grabCell.x + (matrixSize(placed.piece.matrix).cols * layout.cell) / 2;
-        drag.baseCenterY = grabCell.y + (matrixSize(placed.piece.matrix).rows * layout.cell) / 2;
+        // 不再用 grabCell 覆盖 base/frame，保留与 tray 相同的抬起姿势
         drag.tapStartFx = fx;
         drag.tapStartFy = fy;
         drag.returningFromBoard = true;
         drag.originalPlaced = placed;
+        drag.homeTrayIndex =
+          placed.homeTrayIndex ?? placed.trayIndex ?? 0;
+        drag.pieceUid = placed.pieceUid ?? placed.piece.uid;
+        drag.liftedFromTray = false;
         hover = null;
         paint();
         return;
       }
     }
 
+    // 打断惯性
+    if (trayScrollPhase === 'gliding' || trayScrollPhase === 'bouncing') {
+      trayScrollPhase = 'idle';
+      trayScrollV = 0;
+    }
+
     const idx = hitTrayIndex(fx, fy);
-    if (idx < 0 || !tray[idx]) return;
+    const inBand = isInTrayBand(fx, fy);
+    if ((idx < 0 || !tray[idx]) && !inBand) return;
+    // 空白带也可横滑；无块则只 scroll
+    if ((idx < 0 || !tray[idx]) && tray.length === 0 && !inBand) return;
 
     e.preventDefault();
     stage.setPointerCapture?.(e.pointerId);
-    trayScrollDrag = {
+    const now = performance.now();
+    const hasPiece = idx >= 0 && !!tray[idx];
+    trayPointer = {
       pointerId: e.pointerId,
       startFx: fx,
       startFy: fy,
       startScrollX: trayScrollX,
-      trayIndex: idx,
-      moved: false,
+      trayIndex: hasPiece ? idx : -1,
+      pieceUid: hasPiece ? tray[idx].uid : null,
+      t0: now,
+      mode: hasPiece ? 'armed' : 'scroll',
+      longPressFired: false,
+      lastFx: fx,
+      lastFy: fy,
+      lastT: now,
     };
+    if (!hasPiece) trayScrollPhase = 'dragging';
     hover = null;
     paint();
   }
@@ -1080,61 +1584,150 @@ export function createGame(opts) {
   function onPointerMove(e) {
     e.preventDefault();
     const { x: fx, y: fy } = framePointFromClient(e.clientX, e.clientY);
-    if (trayScrollDrag && e.pointerId === trayScrollDrag.pointerId && !drag) {
-      const dx = fx - trayScrollDrag.startFx;
-      const dy = fy - trayScrollDrag.startFy;
-      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) trayScrollDrag.moved = true;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 6) {
-        trayScrollX = clampTrayScroll(trayScrollDrag.startScrollX - dx);
+    const now = performance.now();
+
+    if (trayPointer && e.pointerId === trayPointer.pointerId && !drag) {
+      const dx = fx - trayPointer.startFx;
+      const dy = fy - trayPointer.startFy;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      const dist = Math.hypot(dx, dy);
+
+      // 长按拿起（静止够久）
+      if (
+        trayPointer.mode === 'armed' &&
+        trayPointer.pieceUid != null &&
+        !trayPointer.longPressFired &&
+        dist < tapSlop() &&
+        now - trayPointer.t0 >= TRAY_LONG_PRESS_MS
+      ) {
+        trayPointer.longPressFired = true;
+        const idx = tray.findIndex((p) => p.uid === trayPointer.pieceUid);
+        if (idx >= 0) liftPieceFromTray(idx, e.pointerId, fx, fy);
+        return;
+      }
+
+      if (trayPointer.mode === 'armed') {
+        // 斜上/上滑拿起：放宽横向占比，方便左右边缘块拖上棋盘
+        if (
+          trayPointer.pieceUid != null &&
+          dy < -liftSwipeUp() &&
+          absDy >= absDx * 0.65
+        ) {
+          const idx = tray.findIndex((p) => p.uid === trayPointer.pieceUid);
+          if (idx >= 0) liftPieceFromTray(idx, e.pointerId, fx, fy);
+          return;
+        }
+        // 明确朝棋盘移动：保持 armed（等长按/继续上滑），绝不切横滑
+        if (trayPointer.pieceUid != null && isArmedMovingTowardBoard(dy)) {
+          trayPointer.lastFx = fx;
+          trayPointer.lastFy = fy;
+          trayPointer.lastT = now;
+          return;
+        }
+        // 横滑：更严的纯横 + 更大 slop（空白带仍可直接 scroll 模式）
+        if (
+          absDx > scrollSlop() &&
+          absDx >= absDy * scrollAxis() &&
+          !isArmedMovingTowardBoard(dy)
+        ) {
+          trayPointer.mode = 'scroll';
+          trayScrollPhase = 'dragging';
+        } else {
+          trayPointer.lastFx = fx;
+          trayPointer.lastFy = fy;
+          trayPointer.lastT = now;
+          return;
+        }
+      }
+
+      if (trayPointer.mode === 'scroll') {
+        const raw = trayPointer.startScrollX - dx;
+        applyScrollDrag(raw);
+        const dtMs = Math.max(1, now - trayPointer.lastT);
+        // 指右移 → 内容右移 → scroll 减小；速度用 px/s
+        const fingerDx = fx - trayPointer.lastFx;
+        trayScrollV = -(fingerDx / dtMs) * 1000;
+        if (!Number.isFinite(trayScrollV)) trayScrollV = 0;
+        const maxV = TRAY_FLING_MAX_V;
+        trayScrollV = Math.max(-maxV, Math.min(maxV, trayScrollV));
+        trayPointer.lastFx = fx;
+        trayPointer.lastFy = fy;
+        trayPointer.lastT = now;
         paint();
         return;
       }
-      if (dy < -Math.max(10, layout.cell * 0.22)) {
-        const piece = tray[trayScrollDrag.trayIndex];
-        if (!piece) return;
-        drag = createDragSession({
-          layout,
-          piece,
-          trayIndex: trayScrollDrag.trayIndex,
-          pointerId: e.pointerId,
-          fx: trayScrollDrag.startFx,
-          fy: trayScrollDrag.startFy,
-          getTune,
-        });
-        drag.tapStartFx = trayScrollDrag.startFx;
-        drag.tapStartFy = trayScrollDrag.startFy;
-        drag.frameX -= trayScrollX;
-        drag.targetOriginX -= trayScrollX;
-        drag.baseCenterX -= trayScrollX;
-        trayScrollDrag = null;
-      } else {
-        return;
-      }
     }
+
     if (!drag || e.pointerId !== drag.pointerId) return;
     updateDragFromPointer(fx, fy);
   }
 
   function onPointerUp(e) {
-    if (trayScrollDrag && e.pointerId === trayScrollDrag.pointerId && !drag) {
+    // tray 预备态结束：点转 or 惯性/回弹
+    if (trayPointer && e.pointerId === trayPointer.pointerId && !drag) {
       e.preventDefault();
       try {
         stage.releasePointerCapture?.(e.pointerId);
       } catch {
         /* ignore */
       }
-      const active = trayScrollDrag;
-      trayScrollDrag = null;
+      const active = trayPointer;
+      trayPointer = null;
       const upPoint = framePointFromClient(e.clientX, e.clientY);
       const tapMove = Math.hypot(upPoint.x - active.startFx, upPoint.y - active.startFy);
-      if (tapMove < Math.max(10, layout.cell * 0.22)) {
-        const piece = tray[active.trayIndex];
-        if (piece) tray[active.trayIndex] = rotatePieceCW(piece);
+
+      if (active.mode === 'scroll') {
+        const lim = scrollLimits();
+        let v = trayScrollV;
+        if (!Number.isFinite(v)) v = 0;
+        // px/s
+        v = Math.max(-TRAY_FLING_MAX_V, Math.min(TRAY_FLING_MAX_V, v));
+        trayScrollV = v;
+        if (!Number.isFinite(trayScrollX)) trayScrollX = 0;
+        // 松手时逻辑位置先钳在有限 overscroll
+        const b = logicScrollBounds();
+        trayScrollX = Math.min(b.max, Math.max(b.min, trayScrollX));
+        if (trayScrollX < lim.min || trayScrollX > lim.max) {
+          trayScrollPhase = 'bouncing';
+          // 给足回弹初速：快收回 + 自然过冲
+          const toward =
+            trayScrollX < lim.min ? 1 : trayScrollX > lim.max ? -1 : 0;
+          const inwardBoost = toward * Math.min(1400, Math.abs(v) * 0.45 + 520);
+          if (toward !== 0) {
+            if (v * toward < 0) trayScrollV = inwardBoost;
+            else trayScrollV = v * 0.7 + toward * 260;
+          } else {
+            trayScrollV = v * 0.55;
+          }
+        } else if (Math.abs(v) > 80) {
+          trayScrollPhase = 'gliding';
+        } else {
+          trayScrollPhase = 'idle';
+          trayScrollV = 0;
+          trayScrollX = clampTrayScrollHard(trayScrollX);
+        }
+        trayScrollLastT = performance.now();
+        paint();
+        updateStatus();
+        return;
+      }
+
+      // armed 抬起 → 旋转 + 瞬态震动（量级同影格）
+      if (active.pieceUid != null && tapMove < tapSlop()) {
+        const idx = tray.findIndex((p) => p.uid === active.pieceUid);
+        if (idx >= 0 && tray[idx]) {
+          const uid = active.pieceUid;
+          tray[idx] = rotatePieceCW(tray[idx]);
+          tray[idx].uid = uid;
+          ghostHaptics.onRotate?.();
+        }
       }
       paint();
       updateStatus();
       return;
     }
+
     if (!drag || e.pointerId !== drag.pointerId) return;
     e.preventDefault();
     try {
@@ -1144,7 +1737,9 @@ export function createGame(opts) {
     }
 
     const active = drag;
+    const upPoint = framePointFromClient(e.clientX, e.clientY);
     if (active) {
+      samplePointer(active, upPoint.x, upPoint.y, layout, getTune);
       hover = ghostPolicy.resolve(
         active,
         active.frameX,
@@ -1155,22 +1750,18 @@ export function createGame(opts) {
     const h = hover;
     drag = null;
 
-    const upPoint = framePointFromClient(e.clientX, e.clientY);
-    const tapMove = Math.hypot(
-      upPoint.x - (active.tapStartFx ?? upPoint.x),
-      upPoint.y - (active.tapStartFy ?? upPoint.y),
-    );
-    if (!h?.valid && tapMove < Math.max(10, layout.cell * 0.22)) {
-      tray[active.trayIndex] = rotatePieceCW(active.piece);
-      hover = null;
-      placeSnap = null;
-      paint();
-      updateStatus();
-      return;
-    }
-
-    if (active.returningFromBoard && isInTrayBand(upPoint.x, upPoint.y)) {
-      tray[active.trayIndex] = active.piece;
+    // 回 tray：手指在候选区松手
+    if (
+      (active.liftedFromTray || active.returningFromBoard) &&
+      isInTrayBand(upPoint.x, upPoint.y) &&
+      !h?.valid
+    ) {
+      if (active.liftedFromTray) {
+        // 未落盘取消：原洞填回 + scroll 还原
+        restoreLiftedTrayPiece(active);
+      } else {
+        insertPieceIntoTray(active.piece, upPoint.x, homeIndexForDrag(active));
+      }
       hover = null;
       placeSnap = null;
       paint();
@@ -1187,17 +1778,22 @@ export function createGame(opts) {
         h.originCol,
         active.piece.cellColors || active.piece.color,
       );
-      tray[active.trayIndex] = null;
+      const home = homeIndexForDrag(active);
+      // tray 拖起时原槽已是 null；落盘成功后压实
+      if (active.liftedFromTray) {
+        compactTrayAfterPlace();
+      }
       placedPieces.push({
         id: nextPlacedId++,
         piece: active.piece,
-        trayIndex: active.trayIndex,
+        pieceUid: active.pieceUid ?? active.piece.uid,
+        trayIndex: home ?? active.trayIndex ?? 0,
+        homeTrayIndex: home ?? active.trayIndex ?? 0,
         originRow: h.originRow,
         originCol: h.originCol,
         cells: placedCells,
       });
 
-      // 视觉：从拖拽位快速吸附到目标格（逻辑已 place）
       const to = placeOriginFrame(h.originRow, h.originCol);
       const snapMs = Math.max(
         0,
@@ -1257,8 +1853,10 @@ export function createGame(opts) {
           active.originalPlaced.piece.cellColors || active.originalPlaced.piece.color,
         );
         placedPieces.push(active.originalPlaced);
+      } else if (active.liftedFromTray) {
+        // 非法落点：填回原洞 + 还原 scroll
+        restoreLiftedTrayPiece(active);
       }
-      // 未放下：短暂防误触（可选）；合法放下不锁
       placeSnap = null;
       lockInput(FEEL_REJECT_MS);
     }
@@ -1269,9 +1867,29 @@ export function createGame(opts) {
   }
 
   function onPointerCancel(e) {
+    if (trayPointer && e.pointerId === trayPointer.pointerId) {
+      trayPointer = null;
+      trayScrollPhase = 'idle';
+      trayScrollV = 0;
+      trayScrollX = clampTrayScrollHard(trayScrollX);
+      paint();
+      return;
+    }
     if (!drag || e.pointerId !== drag.pointerId) return;
+    const active = drag;
     drag = null;
     hover = null;
+    if (active.liftedFromTray && active.piece) {
+      restoreLiftedTrayPiece(active);
+    } else if (active.returningFromBoard && active.originalPlaced) {
+      grid.place(
+        active.originalPlaced.piece.matrix,
+        active.originalPlaced.originRow,
+        active.originalPlaced.originCol,
+        active.originalPlaced.piece.cellColors || active.originalPlaced.piece.color,
+      );
+      placedPieces.push(active.originalPlaced);
+    }
     paint();
   }
 
@@ -1309,10 +1927,12 @@ export function createGame(opts) {
     camera.updateProjectionMatrix();
 
     layout = computeLayout(frame, safe);
-    trayScrollX = clampTrayScroll(trayScrollX);
+    refreshTraySlots();
+    trayScrollX = clampTrayScrollHard(trayScrollX);
     boardView.rebuild(layout);
     drag = null;
     hover = null;
+    trayPointer = null;
     applyScoreUi();
     paint();
     syncEditorPanel();
@@ -1333,7 +1953,8 @@ export function createGame(opts) {
   if (editorMode) {
     puzzleLevel = editorLevel;
     puzzle = createPuzzle(editorLevel);
-    tray = Array.from({ length: TRAY_SIZE }, () => null);
+    tray = [];
+    refreshTraySlots();
     grid.load(puzzle.board);
   } else {
     puzzleLevel = initialPuzzleLevel - 1;
@@ -1382,9 +2003,40 @@ export function createGame(opts) {
   let running = true;
   renderer.setAnimationLoop(() => {
     if (!running) return;
+    const nowMs = performance.now();
+    // 静止长按：无 move 时也要触发
+    if (
+      trayPointer &&
+      !drag &&
+      trayPointer.mode === 'armed' &&
+      !trayPointer.longPressFired &&
+      nowMs - trayPointer.t0 >= TRAY_LONG_PRESS_MS
+    ) {
+      const still =
+        Math.hypot(
+          (trayPointer.lastFx ?? trayPointer.startFx) - trayPointer.startFx,
+          (trayPointer.lastFy ?? trayPointer.startFy) - trayPointer.startFy,
+        ) < tapSlop();
+      if (still) {
+        trayPointer.longPressFired = true;
+        const idx = tray.findIndex((p) => p.uid === trayPointer.pieceUid);
+        if (idx >= 0) {
+          liftPieceFromTray(
+            idx,
+            trayPointer.pointerId,
+            trayPointer.lastFx,
+            trayPointer.lastFy,
+          );
+        }
+      }
+    }
     if (deathFx) {
       tickDeathFx();
     } else {
+      if (trayScrollPhase === 'gliding' || trayScrollPhase === 'bouncing') {
+        tickTrayScroll(nowMs);
+      }
+      if (trayFlip.size > 0 && !drag) paint();
       // 消行 / 拖拽 / 落位吸附可并行
       if (drag) tickDragFrame();
       if (placeSnap) tickPlaceSnap();

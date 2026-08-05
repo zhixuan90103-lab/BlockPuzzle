@@ -24,17 +24,20 @@
 index.html
   ├─ src/style.css
   └─ src/main.js
-        ├─ installTouchHygiene()                       ← touch-hygiene.js（禁多指/双击缩放等）
+        ├─ installTouchHygiene()                       ← touch-hygiene.js
+        │     └─ 禁多指/双击缩放/长按放大镜/选区（非 UI 控件 preventDefault）
         ├─ applyNativeClass() / applyShellLayout()     ← viewport.js
         ├─ createRenderer({ container: #stage })       ← create-renderer.js
         │     └─ three/webgpu WebGPURenderer
         ├─ createNativeHaptics()                       ← native-haptics.js
         ├─ createGame({ stage, hud, renderer, haptics })  ← game/game.js
-        │     ├─ grid / deal / score / view / layout
+        │     ├─ grid / puzzle generator / score / view / layout
+        │     ├─ tray-layout.js（候选区几何 · rubber）
         │     ├─ feel/drag-session · ghost-policy · haptics-ghost
-        │     ├─ 仅 isPrimary 指针拖块
-        │     ├─ clearFx 消行编排（缩转 + 触发震动）
-        │     └─ deathFx 死亡演出 → game-over overlay
+        │     ├─ tray 状态机：点转/横滑/长按·上滑拖；占位洞；盘上摘块
+        │     ├─ 仅 isPrimary 指针
+        │     ├─ puzzle-fill：填满空洞 → 全盘消除 → 下一关
+        │     └─ clearFx / boardRevealFx / game-over
         ├─ createFeelPanel({ onChange → game.applyTune })
         │     ├─ 右上角设置齿轮
         │     └─ 面板内手感1/2 ← feel-presets.js（默认手感1）+ 滑条
@@ -42,7 +45,17 @@ index.html
 ```
 
 **改玩法：** `src/game/*`。  
+**改解密关卡：** `src/game/puzzle/generator.js` + `docs/PUZZLE-LEVEL-DESIGN.md`。  
+**改候选区：** `tray-layout.js` / `game.js` + **`docs/TRAY-INTERACTION-SPEC.md`**。  
 **保留：** `create-renderer.js` / `viewport.js` / `native-haptics.js` 契约。
+
+调试入口：
+
+| URL | 用途 |
+|-----|------|
+| `/` | 从第 1 关开始 |
+| `/?level=7` | 直接进入第 7 关 |
+| `/?editor=1&level=7` | 关卡编辑模式，编辑第 7 关 mask |
 
 ---
 
@@ -53,7 +66,6 @@ index.html
   #phone-frame          ← getFrameSize() 量这里
     #stage              ← canvas 父节点
     #hud                ← 分数等安全区 UI（不含全屏结算）
-    .death-flash[data-death-flash]   ← 死亡开场闪红（盖 stage+hud）
     .game-over[data-game-over]       ← 全屏半透结算 + Play Again
     #feel-panel         ← 右上角设置 + 底部 sheet（动态挂载）
 ```
@@ -64,6 +76,8 @@ index.html
 | `#phone-frame` | CSS / `applyShellLayout` | `getFrameSize` · feel-panel mount · overlay 根 |
 | `#hud` | game HUD 分数 | CSS safe padding |
 | `[data-game-score]` | `game.js` syncHud | 展示 |
+| `[data-best-score]` | `game.js` syncHud | 展示历史最高分 |
+| `[data-level-editor]` | `game.js` editor mode | 关卡 mask 编辑器 |
 | `[data-death-flash]` | `game.js` setDeathFlash | CSS 动画 `.is-active` |
 | `[data-game-over]` | `game.js` setGameOver | 可见性 / 锁输入 |
 | `[data-final-score]` | `game.js` startDeathFx | 展示本局分 |
@@ -112,10 +126,11 @@ Xcode Run
 | 端口 / base / 构建目标 | `vite.config.js` |
 | Bundle ID / 应用名 / contentInset | `capacitor.config.json` |
 | 设计分辨率 / 桌面 safe 模拟 | `src/viewport.js` **且** `src/style.css` |
-| 启动页文案 / HUD / 死亡与结算结构 | `index.html` + `style.css` |
+| 启动页文案 / HUD / 结算结构 | `index.html` + `style.css` |
 | 震动原生实现 | `plugins/native-haptics/NativeHapticsPlugin.swift` 后 bootstrap |
 | WKWebView 触控硬化 | `plugins/native-haptics/BridgeViewController.swift` 后 bootstrap |
 | 触控卫生（Web） | `src/touch-hygiene.js`（`main.js` 启动时安装） |
+| 解密关卡生成 | `src/game/puzzle/generator.js` |
 | tray / 棋盘几何 | `src/game/layout.js` + `defaults.js` 布局常量 |
 | App Icon | `assets/icon-1024.png` → 同步 iOS `AppIcon` 资源 |
 | 忽略规则 | `.gitignore` |
@@ -130,8 +145,6 @@ Xcode Run
 | 人类第一次 clone | **[README.md](../README.md)** |
 | 文档地图 | **[README.md](./README.md)**（docs 索引） |
 | 深挖设计/坑 | **[ENGINEERING.md](./ENGINEERING.md)** |
-| 实现与问题纪要 | **[PROJECT-HISTORY.md](./PROJECT-HISTORY.md)** |
-| 手感问题→不变量 | **[FEEL-DESIGN.md](./FEEL-DESIGN.md)** |
-| 发块完整规格 | **[DEAL-PUSH-COMPLETE.md](./DEAL-PUSH-COMPLETE.md)** |
+| 解密关卡制作 | **[PUZZLE-LEVEL-DESIGN.md](./PUZZLE-LEVEL-DESIGN.md)** |
 | 只查入口链 | **本文件** |
 | 震动插件 alone | [plugins/native-haptics/README.md](../plugins/native-haptics/README.md) |
