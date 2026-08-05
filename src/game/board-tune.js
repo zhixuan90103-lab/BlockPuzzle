@@ -19,10 +19,10 @@ export function createDefaultBoardTune() {
     BOARD_FRAME_PAD_CELLS: 0.2,
     /** 盘面内底相对 8×8 再外扩（× cell） */
     BOARD_INNER_PAD_CELLS: 0.02,
-    /** 空格：深紫井 */
-    BOARD_EMPTY_DARK: 0.55,
+    /** 空格：深蓝灰井 */
+    BOARD_EMPTY_DARK: 0.2,
     /** 空格不透明度 */
-    BOARD_EMPTY_OPACITY: 1,
+    BOARD_EMPTY_OPACITY: 0.7,
     /** 棋盘底板阴影透明度 */
     BOARD_SHADOW_OPACITY: 0.3,
     /** 阴影扩散（× 盘边长） */
@@ -31,18 +31,18 @@ export function createDefaultBoardTune() {
     BOARD_SHADOW_Y_PX: 6,
     /** 圆角相对格边 */
     BOARD_CELL_CORNER: 0.12,
-    /** 盘框 RGB — 深紫边 */
-    BOARD_FRAME_R: 58,
-    BOARD_FRAME_G: 52,
-    BOARD_FRAME_B: 104,
-    /** 内底 RGB — 深蓝紫盘 */
-    BOARD_FILL_R: 42,
-    BOARD_FILL_G: 36,
-    BOARD_FILL_B: 80,
+    /** 盘框 RGB — 低饱和灰蓝边 */
+    BOARD_FRAME_R: 92,
+    BOARD_FRAME_G: 126,
+    BOARD_FRAME_B: 136,
+    /** 内底 RGB — 深灰蓝盘 */
+    BOARD_FILL_R: 48,
+    BOARD_FILL_G: 68,
+    BOARD_FILL_B: 78,
     /** 棋盘阴影 RGB */
-    BOARD_SHADOW_R: 20,
-    BOARD_SHADOW_G: 16,
-    BOARD_SHADOW_B: 40,
+    BOARD_SHADOW_R: 54,
+    BOARD_SHADOW_G: 78,
+    BOARD_SHADOW_B: 88,
   };
 }
 
@@ -112,12 +112,12 @@ export function onBoardTuneChange(fn) {
   return () => listeners.delete(fn);
 }
 
-/** 空格：深紫井（浅紫灰 ↔ 更深紫，对齐参考糖果盘） */
+/** 空格：深灰蓝井（冷灰蓝 ↔ 更深灰蓝，对齐浅蓝背景） */
 export function boardEmptyColors() {
   const d = Math.max(0, Math.min(1, state.BOARD_EMPTY_DARK));
-  // 浅 ~ #3a3468  深 ~ #1a1638
-  const light = { r: 0x3a, g: 0x34, b: 0x68 };
-  const dark = { r: 0x1a, g: 0x16, b: 0x38 };
+  // 浅 ~ #405f6c  深 ~ #263f4a
+  const light = { r: 0x40, g: 0x5f, b: 0x6c };
+  const dark = { r: 0x26, g: 0x3f, b: 0x4a };
   const mix = (a, b) => Math.round(a + (b - a) * d);
   const r = mix(light.r, dark.r);
   const g = mix(light.g, dark.g);

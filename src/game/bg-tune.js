@@ -5,14 +5,14 @@
 /** @typedef {ReturnType<typeof createDefaultBgTune>} BgTuneState */
 
 export function createDefaultBgTune() {
-  // 参考：中紫壳 #7B6BC4
+  // 柔和浅蓝灰壳，降低饱和度，长时间观看不抢棋盘。
   return {
-    BG_R: 123,
-    BG_G: 107,
-    BG_B: 196,
-    LETTERBOX_R: 88,
-    LETTERBOX_G: 74,
-    LETTERBOX_B: 150,
+    BG_R: 166,
+    BG_G: 211,
+    BG_B: 224,
+    LETTERBOX_R: 122,
+    LETTERBOX_G: 176,
+    LETTERBOX_B: 199,
   };
 }
 

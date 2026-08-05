@@ -1,3 +1,5 @@
+import { SCORE_ALL_CLEAR, SCORE_PER_CELL } from './defaults.js';
+
 export function createScoreState() {
   let score = 0;
 
@@ -6,10 +8,19 @@ export function createScoreState() {
   }
 
   /**
-   * @param {{ cellsPlaced: number, linesCleared: number, boardEmpty: boolean }} e
+   * @param {{
+   *   cellsPlaced: number,
+   *   placementScored?: boolean,
+   *   puzzleComplete?: boolean,
+   * }} e
    */
   function onPlace(e) {
-    if (e.linesCleared > 0 && e.boardEmpty) score += 1;
+    if (e.placementScored) {
+      score += Math.max(0, e.cellsPlaced | 0) * SCORE_PER_CELL;
+    }
+    if (e.puzzleComplete) {
+      score += SCORE_ALL_CLEAR;
+    }
   }
 
   /** tray 用尽刷新时调用（tray 模式） */

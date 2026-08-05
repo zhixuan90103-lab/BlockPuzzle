@@ -8,21 +8,21 @@ export function createDefaultPieceTune() {
   // 默认值来自面板调参（用户确认）
   return {
     /** 圆角相对短边 */
-    PIECE_CORNER: 0.1,
+    PIECE_CORNER: 0.14,
     /** 主体相对外 rim 缩放 */
     PIECE_BODY_SCALE: 0.96,
     /** rim 加深系数（越大越浅/越接近本色） */
-    PIECE_RIM_SHADE: 0.9,
+    PIECE_RIM_SHADE: 0.82,
     /** 顶高光 shade */
-    PIECE_TOP_SHADE: 1.32,
+    PIECE_TOP_SHADE: 1.42,
     /** 顶高光透明度 */
-    PIECE_TOP_OP: 0.34,
+    PIECE_TOP_OP: 0.42,
     /** 顶高光带高度占比 */
     PIECE_TOP_BAND: 0.05,
     /** 底暗带 shade */
-    PIECE_BOT_SHADE: 0.65,
+    PIECE_BOT_SHADE: 0.72,
     /** 底暗带透明度 */
-    PIECE_BOT_OP: 0.32,
+    PIECE_BOT_OP: 0.24,
     /** 底暗带高度占比 */
     PIECE_BOT_BAND: 0.06,
     /** 高光点透明度（0=关闭圆点） */
@@ -30,11 +30,11 @@ export function createDefaultPieceTune() {
     /** 高光点尺寸占比 */
     PIECE_GLINT_SIZE: 0,
     /** tray 块阴影透明度 */
-    PIECE_SHADOW_OP: 0.14,
+    PIECE_SHADOW_OP: 0.18,
     /** 阴影颜色 R/G/B */
-    PIECE_SHADOW_R: 90,
-    PIECE_SHADOW_G: 122,
-    PIECE_SHADOW_B: 144,
+    PIECE_SHADOW_R: 118,
+    PIECE_SHADOW_G: 56,
+    PIECE_SHADOW_B: 84,
     /** 阴影偏移 × cellPitch */
     PIECE_SHADOW_OX: 0.1,
     PIECE_SHADOW_OY: 0.1,

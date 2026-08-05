@@ -21,6 +21,8 @@ import {
   scheduleStableLayout,
 } from './viewport.js';
 
+const SHOW_VISUAL_TUNE_PANELS = false;
+
 const statusEl = document.getElementById('status');
 const haptics = createNativeHaptics({ enabled: true });
 
@@ -75,47 +77,51 @@ async function boot() {
     },
   });
 
-  // 独立 HUD 调参（BEST / SCORE 位置字号），不并入手感设置
-  const hudPanel = createHudPanel({
-    mount: frameEl,
-    hud,
-    onChange: () => {
-      game.applyScoreUi?.();
-    },
-  });
+  const hudPanel = SHOW_VISUAL_TUNE_PANELS
+    ? createHudPanel({
+        mount: frameEl,
+        hud,
+        onChange: () => {
+          game.applyScoreUi?.();
+        },
+      })
+    : null;
 
-  // 独立候选区白底 dock 调参
-  const trayDockPanel = createTrayDockPanel({
-    mount: frameEl,
-    onChange: () => {
-      // 白条在每帧 paint 时读取 tune，触发重绘即可
-      game.relayout?.();
-    },
-  });
+  const trayDockPanel = SHOW_VISUAL_TUNE_PANELS
+    ? createTrayDockPanel({
+        mount: frameEl,
+        onChange: () => {
+          game.relayout?.();
+        },
+      })
+    : null;
 
-  // 独立棋盘调参
-  const boardPanel = createBoardPanel({
-    mount: frameEl,
-    onChange: () => {
-      game.relayout?.();
-    },
-  });
+  const boardPanel = SHOW_VISUAL_TUNE_PANELS
+    ? createBoardPanel({
+        mount: frameEl,
+        onChange: () => {
+          game.relayout?.();
+        },
+      })
+    : null;
 
-  // 独立摆放物样式调参
-  const piecePanel = createPiecePanel({
-    mount: frameEl,
-    onChange: () => {
-      game.applyPieceStyle?.();
-    },
-  });
+  const piecePanel = SHOW_VISUAL_TUNE_PANELS
+    ? createPiecePanel({
+        mount: frameEl,
+        onChange: () => {
+          game.applyPieceStyle?.();
+        },
+      })
+    : null;
 
-  // 独立背景色调参
-  const bgPanel = createBgPanel({
-    mount: frameEl,
-    onChange: () => {
-      game.applyBgStyle?.();
-    },
-  });
+  const bgPanel = SHOW_VISUAL_TUNE_PANELS
+    ? createBgPanel({
+        mount: frameEl,
+        onChange: () => {
+          game.applyBgStyle?.();
+        },
+      })
+    : null;
 
   if (haptics.isNativeIos()) {
     await haptics.prepare();

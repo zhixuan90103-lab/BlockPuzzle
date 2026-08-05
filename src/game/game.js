@@ -168,6 +168,7 @@ export function createGame(opts) {
    *   start: number,
    *   duration: number,
    *   cellsPlaced: number,
+   *   placementScored: boolean,
    * }}
    */
   let clearFx = null;
@@ -1081,17 +1082,17 @@ export function createGame(opts) {
 
   function finishClearFx() {
     if (!clearFx) return;
-    const { lines, cellsPlaced, cells: clearCells } = clearFx;
+    const { cellsPlaced, placementScored, cells: clearCells } = clearFx;
     // 只清本波快照格，整行 clearLines 会误伤消行中后放入的块
     grid.clearExactCells(clearCells);
-    const linesCleared = lines?.count ?? 0;
+    const puzzleComplete = grid.isEmpty();
     clearFx = null;
     // 不强制掐断连续震：时长由 FEEL_HAPTIC_CLEAR_FX_DURATION_MS 自管；
     // 仅 restart 时 onClearFxEnd 强制 stop。
     scoreState.onPlace({
       cellsPlaced,
-      linesCleared,
-      boardEmpty: grid.isEmpty(),
+      placementScored,
+      puzzleComplete,
     });
     updateBestScore();
     if (trayEmpty() && grid.isEmpty()) startNextPuzzle();
@@ -1839,14 +1840,17 @@ export function createGame(opts) {
           start: performance.now(),
           duration: FEEL_CLEAR_MS,
           cellsPlaced,
+          placementScored: active.liftedFromTray,
         });
         lockInput(FEEL_CLEAR_MS);
       } else {
         scoreState.onPlace({
           cellsPlaced,
-          linesCleared: 0,
-          boardEmpty: grid.isEmpty(),
+          placementScored: active.liftedFromTray,
+          puzzleComplete: false,
         });
+        updateBestScore();
+        syncHud();
         checkGameOver();
       }
     } else {

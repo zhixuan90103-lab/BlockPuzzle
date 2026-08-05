@@ -1,9 +1,8 @@
 /**
  * Puzzle-fill mode generator.
  *
- * Builds an 8x8 board with three missing polyominoes. The tray is exactly
- * those missing pieces, so the first version is always solvable and easy to
- * evaluate by feel.
+ * Builds an 8x8 board with missing polyominoes. The tray is exactly those
+ * missing pieces, so every puzzle is generated from a known solution.
  */
 import { GRID, PIECE_PALETTE } from '../defaults.js';
 import {
@@ -14,42 +13,42 @@ import {
 } from '../forms.js';
 
 /**
- * 盘面预填：闷一档单色系（深盘上当地形，S 低于糖果 tray）
+ * 盘面预填：低饱和灰调地形色，明显低于候选/玩家摆放块。
  * tray ban 该色系。
  */
 const BOARD_PALETTES = [
-  // muted purple terrain
-  [0x5a4a88, 0x6a5a98, 0x4a3a78, 0x7a6aa8],
-  // muted blue
-  [0x3a5a98, 0x4a6aa8, 0x2a4a88, 0x5a7ab8],
-  // muted green
-  [0x3a7850, 0x4a8860, 0x2a6840, 0x5a9870],
-  // muted red
-  [0x883848, 0x984858, 0x782838, 0xa85868],
-  // muted ochre
-  [0x887838, 0x988848, 0x786828, 0xa89858],
-  // muted teal
-  [0x387878, 0x488888, 0x286868, 0x589898],
+  // slate blue terrain
+  [0x7896a4, 0x87a4b0, 0x668493, 0x96b0bb],
+  // gray teal
+  [0x6f9d98, 0x80aca7, 0x5f8985, 0x91bab5],
+  // blue gray
+  [0x7f94b2, 0x8fa3bf, 0x6d829f, 0x9fb1cc],
+  // sage gray
+  [0x7da391, 0x8eb2a1, 0x6b8f7f, 0x9dbfaf],
+  // warm gray
+  [0xa69b82, 0xb4aa93, 0x938970, 0xc1b8a3],
+  // mauve gray
+  [0x9a89a6, 0xaa99b5, 0x877692, 0xb8a8c2],
 ];
 
 /**
- * 摆放物：参考糖果高饱和多色
+ * 摆放物：清爽糖果高亮多色
  */
-const PIECE_SET_COLORS = [0xffcc22, 0x3ddc64, 0xff3b4a, 0xc44dff, 0xff9a1a];
+const PIECE_SET_COLORS = [0xff6f9f, 0x63dce7, 0x69a6ff, 0xffd447, 0x78e5bd];
 const VARIANT_PIECE_COLORS = [
-  0xffcc22, // yellow
-  0xffe066, // light yellow
-  0x3ddc64, // green
-  0x6bff9a, // light green
-  0xff3b4a, // red
-  0xff6b6b, // light red
-  0xc44dff, // purple
-  0xd97aff, // light purple
-  0xff9a1a, // orange
-  0xffb84d, // light orange
-  0x4dc4ff, // cyan
-  0x4d7aff, // blue
-  0xff4db8, // pink
+  0xff6f9f, // candy pink
+  0xff8ab8, // light pink
+  0x63dce7, // aqua
+  0x5fd0d9, // teal
+  0x69a6ff, // sky blue
+  0x8fc2ff, // light blue
+  0xffd447, // lemon
+  0xffe17a, // light lemon
+  0x78e5bd, // mint
+  0x96f0cf, // light mint
+  0xffb84d, // soft orange
+  0xb88cff, // soft violet
+  0xd09cff, // light violet
 ];
 const BLOCKBLAST_FORMS = [
   { id: 'bb_square2', family: 200, matrix: [[1, 1], [1, 1]] },
@@ -867,87 +866,21 @@ function createVariantPuzzle(level, rng) {
   };
 }
 
+function enforcePieceCount(puzzle, level) {
+  const count = puzzlePieceCount(level);
+  if (!puzzle || !Array.isArray(puzzle.tray)) return puzzle;
+  if (puzzle.tray.length === count) return puzzle;
+  return {
+    ...puzzle,
+    tray: puzzle.tray.slice(0, count),
+  };
+}
+
 /**
  * @param {number} level
  * @param {() => number} [rng]
  * @returns {PuzzleState}
  */
 export function createPuzzle(level = 1, rng = Math.random) {
-  return createVariantPuzzle(level, rng);
-
-  for (let attempt = 0; attempt < 240; attempt++) {
-    const missingMask = emptyBoard();
-    /** @type {{ form: import('../forms.js').FormDef, trayForm: import('../forms.js').FormDef, row: number, col: number }[]} */
-    const removals = [];
-    const forms = formsForLevel(level, rng);
-
-    for (let i = 0; i < 3; i++) {
-      const trayForm = forms[i];
-      const form = rotateForm(trayForm, Math.floor(rng() * 4));
-      const { rows, cols } = matrixSize(form.matrix);
-      let placed = false;
-      for (let tries = 0; tries < 80; tries++) {
-        const row = Math.floor(rng() * (GRID - rows + 1));
-        const col = Math.floor(rng() * (GRID - cols + 1));
-        if (!canPlace(missingMask, form.matrix, row, col)) continue;
-        if (i > 0) {
-          const touches = touchCount(missingMask, form.matrix, row, col);
-          const minTouches = level < 5 ? 1 : 2;
-          if (touches < minTouches) continue;
-        }
-        stamp(missingMask, form.matrix, row, col, 1);
-        removals.push({ form, trayForm, row, col });
-        placed = true;
-        break;
-      }
-      if (!placed) break;
-    }
-
-    if (removals.length !== 3) continue;
-
-    const missingCells = removals.reduce((sum, p) => sum + countCells(p.form.matrix), 0);
-    const minMissing = level < 5 ? 12 : 14;
-    if (missingCells < minMissing && attempt < 200) continue;
-    if (componentCount(missingMask) !== 1) continue;
-
-    const full = emptyBoard();
-    for (let r = 0; r < GRID; r++) {
-      for (let c = 0; c < GRID; c++) {
-        full[r][c] = makeBoardColor(r, c, rng, level);
-      }
-    }
-    for (const p of removals) stamp(full, p.form.matrix, p.row, p.col, null);
-
-    // 候选块：避开盘面主色系及接近色系（makeTrayPieces）
-    const boardFamily = colorFamily(boardPaletteForLevel(level)[0]);
-    const tray = makeTrayPieces(
-      shuffle(removals, rng).map((p) => p.trayForm),
-      rng,
-      trayBanFamiliesForBoard(boardFamily),
-    );
-
-    return { board: full, tray, level, missingCells };
-  }
-
-  // Deterministic fallback: three simple holes in an otherwise full board.
-  const board = emptyBoard();
-  for (let r = 0; r < GRID; r++) {
-    for (let c = 0; c < GRID; c++) {
-      board[r][c] = makeBoardColor(r, c, rng, level);
-    }
-  }
-  const forms = formsForLevel(level, rng);
-  const origins = [
-    [0, 0],
-    [3, 2],
-    [5, 5],
-  ];
-  forms.forEach((form, i) => stamp(board, form.matrix, origins[i][0], origins[i][1], null));
-  const boardFamily = colorFamily(boardPaletteForLevel(level)[0]);
-  return {
-    board,
-    tray: makeTrayPieces(forms, rng, trayBanFamiliesForBoard(boardFamily)),
-    level,
-    missingCells: forms.reduce((sum, form) => sum + countCells(form.matrix), 0),
-  };
+  return enforcePieceCount(createVariantPuzzle(level, rng), level);
 }

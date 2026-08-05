@@ -4,15 +4,15 @@
   /* Design phone (logical points). Keep in sync with src/viewport.js */
   --design-w: 393;
   --design-h: 852;
-  /* 参考紫壳 */
-  --letterbox-bg: #584a96;
-  --frame-bg: #7b6bc4;
+  /* 柔和浅蓝灰糖果壳 */
+  --letterbox-bg: #7ab0c7;
+  --frame-bg: #a6d3e0;
   --frame-radius: 28px;
   --wood-light: #8ec5f0;
   --wood-mid: #6ec4f0;
   --wood-dark: #5ab4e6;
   --score-cream: #ffffff;
-  --hud-label: rgba(255, 255, 255, 0.88);
+  --hud-label: rgba(255, 255, 255, 0.9);
   --hud-value: #ffffff;
 
   /**

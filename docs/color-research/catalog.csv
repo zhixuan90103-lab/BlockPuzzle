@@ -1,0 +1,47 @@
+id,bucket,source,L0_shell,L1_frame,L1_fill,L2_prefill,L3_empty,L4_pieces,L5_ghost,L6_dock,L7_hud,cheerful_1to5,clarity_L4_on_L3,clarity_L4_on_L2,oppressive_1to5,match_our_rules,learn,avoid,notes
+ref-A-industrial,A,refs/A-blockblast-dark-well-industrial.jpg,mid-gray ~#6a7380,dark rim,dark unified,none/sparse,near-black blue-gray ~#1a2030,high-sat blue green orange white,n/a,none/weak,gold crown white score,2,5,N/A,4,low,深井托高饱和块,整壳暗沉,清晰标杆但偏严肃
+ref-A-yarn-blue,A,refs/A-yarn-blue-shell-dark-well.jpg,mid-blue ~#3d5a9e,dark,dark navy,player multi only,dark navy ~#1a2448,high-sat multi yarn,n/a,weak,white score,3,5,N/A,3,low,纹理统一靠色相分,壳中暗,空盘逻辑
+ref-A-candy-purple,A,refs/A-candy-purple-shell-dark-well.jpg,mid-purple ~#6b5bb5,dark purple,deep purple well,player multi only,deep purple ~#2a2450,rainbow high-sat,n/a,weak,white score heart,3,5,N/A,3,low,彩虹块+深井,壳中紫略沉,我们曾对标
+ref-A-candy-peri,A,refs/A-candy-periwinkle-dark-well.jpg,light periwinkle ~#8a8ad4,dark,deep navy,player multi only,deep navy,rainbow high-sat,n/a,weak,white score,4,5,N/A,2,low,浅壳+深井=愉快且清晰,空盘,B/A 交界
+ref-A-mock-deep,A,refs/A-mock-S2-deep-well.jpg,varies,dark,deep well,varies,deep,pop,n/a,n/a,n/a,2,4,med,4,med,内部深井试错,压抑,mock
+ref-B-gingham-pink,B,refs/B-gingham-pink-shell-brown-well.jpg,light pink ~#f2a8bc,dark brown rim,dark brown,player pastel only,dark brown ~#3d282f,soft pink blue mint,n/a,weak,white score,5,5,N/A,1,low,浅壳深槽标杆,空盘无预填单系,轻松首选参照
+ref-B-peri-as-B,B,refs/A-candy-periwinkle-dark-well.jpg,light peri,dark,deep navy,player multi,deep navy,candy,n/a,weak,white,4,5,N/A,2,low,壳轻槽深,空盘,兼入B配额
+ref-B-kxxxl-fresh,B,ext 开心消消乐 清新明丽,bright fresh scenes,clear panels,n/a,clear,cute colorful,n/a,n/a,clear UI,5,4,N/A,1,low,国区休闲气质,非方块填洞,气质参照
+ref-B-pastel-bright-ui,B,ext Figma/pastel joy + hypercasual,high-L pastel shells,light cards,n/a,need step-down L,pastel or pop accents,n/a,n/a,soft type,5,3,N/A,1,med,愉快壳,浅盘易糊须加槽深,方法论+B
+ref-C-mock-sky,C,refs/C-mock-sky-coral-mint.jpg,sky blue,white card,white,multi coral mint,cream hole,yellow coral blue,n/a,white tray,soft HUD,5,3,2,1,med,愉快天壳,洞浅预填花,早期偏好向
+ref-C-mock-pastel,C,refs/C-mock-multi-pastel-mild.jpg,sky,white,white,multi pastel,light gray,pastel,n/a,white,soft,5,3,2,1,med,轻松,对比中,mock
+ref-C-mock-soft-day,C,refs/C-mock-A-soft-day.jpg,soft day,light,light,soft,soft gray,soft,n/a,n/a,n/a,5,3,2,1,med,日间,清晰中,mock
+ref-C-mock-cream,C,refs/C-mock-C-warm-cream.jpg,cream,cream,cream,warm,warm gray,warm,n/a,n/a,n/a,5,3,2,1,med,奶油,清晰中,mock
+ref-C-mock-flat,C,refs/C-mock-S1-flat-soft.jpg,soft,flat,flat,soft,soft,soft,n/a,n/a,n/a,5,2,2,1,med,过平,失败例,mock
+ref-C-ours-sky,C,refs/C-ours-sky-mono-blue.jpg,sky,white,white,mono blue shades,light gray,tray jump,weak ghost,white dock,white HUD,4,2,2,1,high,规则匹配,洞与预填糊,真实工程
+ref-C-ours-fog,C,refs/C-ours-fog-blue-cheerful.jpg,fog blue,white,white,mono mid,mid gray,higher sat tray,n/a,dock,HUD,4,3,3,1,high,较平衡,仍非顶尖清晰,工程
+ref-C-ours-purple,C,refs/C-ours-purple-prefill-blue.jpg,mid purple,dark purple,dark purple,mono blue shades,darker purple well,pink purple yellow,n/a,dark dock,white HUD,3,3,2,3,high,tray跳,预填蓝贴洞,当前向A
+ref-C-batch2,C,refs/C-batch-batch2-*,batch2 mock,varies,varies,varies,varies,varies,n/a,n/a,n/a,4,3,med,2,med,内部迭代,需按帧细分,抽检入库
+ref-C-batch8,C,refs/C-batch-batch8-*,flat bg variants,light,light,varies,gray,multi,n/a,n/a,n/a,4,3,med,1,med,扁平面板期,清晰中,抽检
+ref-C-batch12,C,refs/C-batch-batch12-*,fresh sky,white,white,multi,gray,fresh,n/a,n/a,n/a,5,3,med,1,med,清爽期,愉快,抽检
+ref-C-batch14,C,refs/C-batch-batch14-*,sky+HUD,white,white,multi,gray,multi,n/a,scroll tray,BEST SCORE,4,3,med,1,high,近终局布局,岛安全区,抽检
+ref-D-pastel-method,D,ext pastel UI guides,high L low S,light,n/a,soft,pastel accents,n/a,n/a,soft,5,3,N/A,1,med,轻松,须明度阶梯,无实机分层
+ref-D-cotton-candy-palette,D,ext Icons8 cotton candy pastel,#FFC3FF #CAE3FF etc,light,n/a,light,pastel pop,n/a,n/a,n/a,5,3,N/A,1,med,开心色相,浅底对比弱,色板非游戏
+ref-E-ours-as-structure,E,refs/C-ours-sky-mono-blue.jpg + generator rules,sky,white,white,YES mono family shades,light gray hole,tray banned family,ghost alpha,dock,HUD,4,2,2,1,high,唯一完整结构样本,洞糊,E桶自产
+ref-E-ours-fog-struct,E,refs/C-ours-fog-blue-cheerful.jpg,fog,white,white,YES mono mid,mid gray,tray banned,n/a,dock,HUD,4,3,3,1,high,结构完整,清晰中,E桶自产
+ref-E-ours-purple-struct,E,refs/C-ours-purple-prefill-blue.jpg,purple,dark,dark,YES mono blue,dark purple,tray jump,n/a,dock,HUD,3,3,2,3,high,结构完整,L2-L3同相,E桶自产
+ref-E-fit-it-fill-grid,E,ext Fit It Pix fill-in-grid store,varies bright often,grid board,level shapes / color regions,empty slots,matching color blocks,n/a,tray pieces,score,4,4,3,2,med,填格+色块接近,非单系预填地形,需实机截图复核
+ref-E-wood-block-classic,E,ext Wood Block Puzzle store,warm wood or color bg,wood board,usually empty start,light/dark wood cells,wood or color blocks,n/a,3 pieces,score,4,4,N/A,2,low,休闲清晰,多空盘,结构弱匹配
+ref-ext-pop-cta,A,ext CrazyLabs hypercasual guide,bright brand,high contrast,n/a,clear,vivid interactive,n/a,n/a,n/a,4,5,N/A,2,med,可点目标高对比,非棋盘,L4启发
+ref-B-candy-jam-01,B,refs/B-candy-jam-store-01.jpg Color Candy Jam store,light peri-lavender ~#9ea9cc,candy frame multi,soft board,player multi candy only,shallow light wells (hue not depth),high-sat candy red orange green blue pink,n/a,none soft icons,icon HUD,5,4,N/A,1,low,开心浅壳+跳色块,洞浅靠色相分块非深井,实机商店截图 2026
+ref-B-candy-jam-02,B,refs/B-candy-jam-store-02.jpg Color Candy Jam,light purple-gray ~#a090a8,candy frame,soft,player multi,shallow,high-sat multi,n/a,none,icon,5,4,N/A,1,low,愉快壳,浅盘,store
+ref-B-peri-hex,B,refs/A-candy-periwinkle-dark-well.jpg HEX校准,periwinkle ~#737dc6,dark rim,deep navy fill,player multi only,deep navy ~#232a53,rainbow candy high-S,n/a,weak/none,white score pink heart,4,5,N/A,2,low,浅壳+深井标杆 cheerful∩clarity,空盘无预填,hex实测 shell/well
+ref-B-graphite-mock,B,refs/A-mock-D-graphite-pop.jpg,mid cool gray ~#798690,soft frame,mid board,gray filled + dark path,dark well ~#20272d,orange magenta blue pop,n/a,none,dark pill BEST white score,3,5,N/A,2,med,中性壳+深槽+跳色tray,壳偏冷不够开心,P1结构近邻 mock
+ref-B-gingham-RELABEL,A,refs/B-gingham-pink-shell-brown-well.jpg MISLABEL,slate mid-gray ~#586472 NOT pink,dark,deep navy well ~#1e2035,player multi industrial,near-black cells,blue green orange white,n/a,none,gold crown white score,2,5,N/A,4,low,深井清晰,文件名粉格不符实为工业灰壳,hex校准后改判偏A
+ref-E-blockudoku-mono-blue,E,refs/B-blockudoku-store-01.jpg Blockudoku marketing,white ~#dfe0e4,thin gray frame,white grid,YES mono blue shades on board,white empty cells,mono blue pieces + tray same family,light blue ghost fill,none,dark type trophies,4,4,3,1,med,同系深浅分L2/L4 幽灵浅蓝,白洞无明度阶梯=我们浅盘风险,营销图非完整预填关
+ref-C-batch6,C,refs/C-batch-batch6-01.jpg,varies,varies,varies,varies,varies,varies,n/a,n/a,n/a,4,3,med,2,med,batch6抽检,需细看,内部
+ref-C-batch7,C,refs/C-batch-batch7-01.jpg,varies,varies,varies,varies,varies,varies,n/a,n/a,n/a,4,3,med,2,med,batch7抽检,需细看,内部
+ref-C-batch10,C,refs/C-batch-batch10-01.jpg,varies,varies,varies,varies,varies,varies,n/a,n/a,n/a,4,3,med,1,med,batch10抽检,需细看,内部
+ref-C-batch11,C,refs/C-batch-batch11-01.jpg,varies,varies,varies,varies,varies,varies,n/a,n/a,n/a,4,3,med,1,med,batch11抽检,需细看,内部
+ref-C-batch13,C,refs/C-batch-batch13-01.jpg,varies,varies,varies,varies,varies,varies,n/a,n/a,n/a,4,3,med,1,med,batch13抽检,需细看,内部
+ref-hex-ours-purple,E,refs/C-ours-purple-prefill-blue.jpg HEX,mid purple ~#6d5dbc,dark purple,dark,YES mono blue ~#1f3a76 board avg,deep purple well,tray pink/purple/yellow,n/a,dark dock,white HUD,3,3,2,3,high,结构完整,预填蓝与洞同冷相 L4_on_L2低,工程当前向
+ref-hex-ours-sky,E,refs/C-ours-sky-mono-blue.jpg HEX,sky ~#4dbae9,white,white,YES mono blue light,light hole ~#85b9da,tray jump colors,weak,white,white,4,2,2,1,high,规则匹配,洞与预填糊,工程
+ref-D-night-calm-as-dark,A,refs/C-mock-B-night-calm.jpg,deep navy shell ~#1b2c4c,dark,dark,varies,dark ~#1e2736,varies,n/a,n/a,n/a,2,4,med,4,med,深壳清晰,压抑不符合偏好,mock夜景
+ref-P1-still-blue,E,refs/P1-still-blue-prefill.png STAGE4 mock,periwinkle shell #8B9AE8,frame #3E4558,fill #323848,YES mono blue muted #5A7A9E..,neutral well #2A303C,yellow pink placed + tray green yellow pink,pink ghost a~0.48,white@10% dock,white BEST SCORE,5,5,4.5,1,high,中性槽+跳色 L4_on_L2抬升,静帧非真机mesh,P1草案验证
+ref-P1-still-red,E,refs/P1-still-red-prefill.png STAGE4 mock,#8B9AE8,#3E4558,#323848,YES mono red muted,#2A303C,green purple yellow + tray cyan yellow purple,n/a,white@10%,white HUD,5,5,5,1,high,红预填分离最好,静帧,P1
+ref-P1-still-green,E,refs/P1-still-green-prefill.png STAGE4 mock,#8B9AE8,#3E4558,#323848,YES mono green muted,#2A303C,orange pink yellow + tray pink yellow purple,n/a,white@10%,white HUD,5,5,5,1,high,绿预填同样清晰,静帧,P1

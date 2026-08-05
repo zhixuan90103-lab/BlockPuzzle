@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>P1 Still · Color Research</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1a1a22;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    padding: 28px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    flex-shrink: 0;
+  }
+  .phone.shot-target { /* single export class via ?v= */ }
+  .shell {
+    width: 100%;
+    height: 100%;
+    background: var(--shell);
+    display: flex;
+    flex-direction: column;
+    padding: 0 16px 18px;
+  }
+  .island {
+    height: 36px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    padding-bottom: 4px;
+  }
+  .island-pill {
+    width: 120px;
+    height: 28px;
+    background: #0a0a0c;
+    border-radius: 20px;
+  }
+  .hud {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 10px 18px 6px;
+    text-align: center;
+    color: #fff;
+  }
+  .hud .label {
+    font-size: 12px;
+    letter-spacing: .12em;
+    opacity: .88;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+  .hud .val {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.1;
+    text-shadow: 0 2px 6px rgba(0,0,0,.22);
+  }
+  .board-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 8px 4px 4px;
+  }
+  .board {
+    width: 100%;
+    max-width: 340px;
+    aspect-ratio: 1;
+    background: var(--board-fill);
+    border: 3px solid var(--board-frame);
+    border-radius: 18px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap: 3px;
+    box-shadow:
+      inset 0 2px 8px rgba(0,0,0,.35),
+      0 8px 20px rgba(0,0,0,.18);
+  }
+  .cell {
+    border-radius: 7px;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+  }
+  .cell.empty {
+    background: linear-gradient(160deg, var(--empty-inner) 0%, var(--empty) 55%, var(--empty-stroke) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.04),
+      inset 0 -2px 4px rgba(0,0,0,.35);
+  }
+  .cell.prefill {
+    background: linear-gradient(145deg, var(--pf-hi) 0%, var(--pf) 48%, var(--pf-lo) 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,.18),
+      inset 0 -2px 3px rgba(0,0,0,.22),
+      0 1px 2px rgba(0,0,0,.15);
+  }
+  .cell.piece {
+    background: linear-gradient(145deg, var(--p-hi) 0%, var(--p) 50%, var(--p-lo) 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255,255,255,.35),
+      inset 0 -2px 4px rgba(0,0,0,.28),
+      0 2px 4px rgba(0,0,0,.2);
+  }
+  .cell.ghost {
+    background: var(--ghost);
+    opacity: 0.42;
+    box-shadow: none;
+  }
+  .dock {
+    margin-top: 8px;
+    height: 132px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 10px 8px;
+  }
+  .tray-piece {
+    display: grid;
+    gap: 3px;
+    transform-origin: center;
+  }
+  .tray-piece .b {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    background: linear-gradient(145deg, var(--p-hi) 0%, var(--p) 50%, var(--p-lo) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.35),
+      0 1px 3px rgba(0,0,0,.25);
+  }
+  .tag {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: rgba(255,255,255,.75);
+    background: rgba(0,0,0,.28);
+    padding: 4px 8px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+  }
+  .caption {
+    position: absolute;
+    left: 0; right: 0; bottom: -36px;
+    text-align: center;
+    color: #c8c8d4;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  body.export-one { background: transparent; padding: 0; gap: 0; }
+  body.export-one .phone:not(.active) { display: none; }
+  body.export-one .phone.active { box-shadow: none; border-radius: 0; }
+  body.export-one .caption { display: none; }
+</style>
+</head>
+<body>
+<script>
+/** P1 palette from STAGE3-P1-HEX-DRAFT.md */
+const P1 = {
+  shell: '#8B9AE8',
+  boardFrame: '#3E4558',
+  boardFill: '#323848',
+  empty: '#2A303C',
+  emptyStroke: '#1C222C',
+  emptyInner: '#343A48',
+  ghost: 'rgba(255,255,255,0.42)',
+  pieces: {
+    yellow: { p: '#FFCC22', hi: '#FFE066', lo: '#E0A800' },
+    pink:   { p: '#FF4DB8', hi: '#FF7ACC', lo: '#D63090' },
+    green:  { p: '#3DDC64', hi: '#6BFF8A', lo: '#28B04A' },
+    orange: { p: '#FF9A1A', hi: '#FFB84D', lo: '#D87800' },
+    purple: { p: '#C44DFF', hi: '#D980FF', lo: '#9A28D0' },
+    red:    { p: '#FF3B4A', hi: '#FF6B76', lo: '#D02030' },
+    cyan:   { p: '#4DC4FF', hi: '#80D8FF', lo: '#2890D0' },
+    blue:   { p: '#4D7AFF', hi: '#7A9CFF', lo: '#2850D0' },
+  },
+  prefill: {
+    blue:  { mid: '#5A7A9E', hi: '#6B8BB0', lo: '#4A6A8C' },
+    red:   { mid: '#B07070', hi: '#C08080', lo: '#9A6060' },
+    green: { mid: '#5A9A72', hi: '#6BAA82', lo: '#4A8A62' },
+  },
+};
+
+// Board layouts: 0 empty, 1–3 prefill shades, 'Y'|'P'|'G'|'O'|'U'|'R' placed pieces, 'g' ghost
+// Blue prefill half-board + placed candy (ban blue/cyan) + ghost preview
+const LAYOUTS = {
+  blue: {
+    label: 'P1 · 蓝预填',
+    tag: 'P1 BLUE',
+    score: 128,
+    best: 540,
+    // 8 rows of 8
+    board: [
+      ['1','1','2','0','0','3','2','1'],
+      ['2','1','1','0','0','2','1','2'],
+      ['1','2','0','0','0','0','3','1'],
+      ['3','0','0','Y','Y','0','0','2'],
+      ['0','0','P','P','Y','0','0','0'],
+      ['2','0','0','P','0','0','1','3'],
+      ['1','2','0','0','0','g','g','2'],
+      ['1','1','3','2','0','g','2','1'],
+    ],
+    tray: [
+      { shape: [[1,1,0],[0,1,1],[0,0,1]], color: 'green' },
+      { shape: [[1,1],[1,1]], color: 'yellow' },
+      { shape: [[0,1,0],[1,1,1],[0,1,0]], color: 'pink' },
+    ],
+  },
+  red: {
+    label: 'P1 · 红预填',
+    tag: 'P1 RED',
+    score: 96,
+    best: 540,
+    board: [
+      ['1','2','1','0','0','2','1','1'],
+      ['2','1','0','0','G','G','2','3'],
+      ['1','0','0','U','U','G','0','1'],
+      ['0','0','Y','Y','U','0','0','2'],
+      ['3','0','0','Y','0','0','1','1'],
+      ['2','1','0','0','0','0','2','3'],
+      ['1','2','2','0','0','1','1','2'],
+      ['1','1','3','2','0','0','2','1'],
+    ],
+    tray: [
+      { shape: [[1,0],[1,0],[1,1]], color: 'cyan' },
+      { shape: [[1,1,1]], color: 'yellow' },
+      { shape: [[1,1],[0,1],[0,1]], color: 'purple' },
+    ],
+  },
+  green: {
+    label: 'P1 · 绿预填',
+    tag: 'P1 GREEN',
+    score: 210,
+    best: 540,
+    board: [
+      ['2','1','1','3','0','0','1','2'],
+      ['1','2','0','0','0','P','P','1'],
+      ['3','0','0','O','O','P','0','2'],
+      ['1','0','Y','Y','O','0','0','1'],
+      ['2','0','0','Y','0','0','3','2'],
+      ['1','2','0','0','0','0','1','1'],
+      ['2','1','3','0','0','2','2','1'],
+      ['1','1','2','1','0','0','1','3'],
+    ],
+    tray: [
+      { shape: [[1,1,1],[0,0,1]], color: 'pink' },
+      { shape: [[1],[1],[1],[1]], color: 'yellow' },
+      { shape: [[1,1],[1,1]], color: 'purple' },
+    ],
+  },
+};
+
+function shadeVars(family) {
+  const pf = P1.prefill[family];
+  return {
+    '--shell': P1.shell,
+    '--board-frame': P1.boardFrame,
+    '--board-fill': P1.boardFill,
+    '--empty': P1.empty,
+    '--empty-stroke': P1.emptyStroke,
+    '--empty-inner': P1.emptyInner,
+    '--pf': pf.mid,
+    '--pf-hi': pf.hi,
+    '--pf-lo': pf.lo,
+  };
+}
+
+function pieceStyle(key) {
+  const c = P1.pieces[key];
+  return `--p:${c.p};--p-hi:${c.hi};--p-lo:${c.lo}`;
+}
+
+const pieceMap = { Y: 'yellow', P: 'pink', G: 'green', O: 'orange', U: 'purple', R: 'red', C: 'cyan', B: 'blue' };
+
+function renderPhone(family, layout) {
+  const phone = document.createElement('div');
+  phone.className = 'phone';
+  phone.dataset.v = family;
+  Object.entries(shadeVars(family)).forEach(([k,v]) => phone.style.setProperty(k, v));
+
+  const shell = document.createElement('div');
+  shell.className = 'shell';
+
+  shell.innerHTML = `
+    <div class="island"><div class="island-pill"></div></div>
+    <div class="hud">
+      <div><div class="label">BEST</div><div class="val">${layout.best}</div></div>
+      <div><div class="label">SCORE</div><div class="val">${layout.score}</div></div>
+    </div>
+  `;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'board-wrap';
+  const board = document.createElement('div');
+  board.className = 'board';
+
+  for (const row of layout.board) {
+    for (const cell of row) {
+      const el = document.createElement('div');
+      el.className = 'cell';
+      if (cell === '0') {
+        el.classList.add('empty');
+      } else if (cell === 'g') {
+        el.classList.add('ghost');
+        el.style.background = P1.pieces.pink.p; // ghost of pink piece
+      } else if (pieceMap[cell]) {
+        el.classList.add('piece');
+        el.setAttribute('style', pieceStyle(pieceMap[cell]));
+      } else {
+        // prefill shade 1/2/3
+        el.classList.add('prefill');
+        const pf = P1.prefill[family];
+        const map = { '1': pf.mid, '2': pf.hi, '3': pf.lo };
+        const base = map[cell] || pf.mid;
+        // slight per-cell variation already via 1/2/3
+        el.style.setProperty('--pf', base);
+        el.style.setProperty('--pf-hi', pf.hi);
+        el.style.setProperty('--pf-lo', pf.lo);
+        if (cell === '2') {
+          el.style.setProperty('--pf', pf.hi);
+        } else if (cell === '3') {
+          el.style.setProperty('--pf', pf.lo);
+        }
+      }
+      board.appendChild(el);
+    }
+  }
+  wrap.appendChild(board);
+  shell.appendChild(wrap);
+
+  const dock = document.createElement('div');
+  dock.className = 'dock';
+  for (const tp of layout.tray) {
+    const grid = document.createElement('div');
+    grid.className = 'tray-piece';
+    const rows = tp.shape.length;
+    const cols = Math.max(...tp.shape.map(r => r.length));
+    grid.style.gridTemplateColumns = `repeat(${cols}, 22px)`;
+    grid.style.gridTemplateRows = `repeat(${rows}, 22px)`;
+    grid.setAttribute('style', grid.getAttribute('style') + ';' + pieceStyle(tp.color));
+    // fix: setAttribute overwrites - redo
+    grid.style.cssText = `display:grid;gap:3px;grid-template-columns:repeat(${cols},22px);grid-template-rows:repeat(${rows},22px);${pieceStyle(tp.color)}`;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const b = document.createElement('div');
+        if (tp.shape[r][c]) {
+          b.className = 'b';
+        } else {
+          b.style.visibility = 'hidden';
+          b.className = 'b';
+        }
+        grid.appendChild(b);
+      }
+    }
+    dock.appendChild(grid);
+  }
+  shell.appendChild(dock);
+
+  const tag = document.createElement('div');
+  tag.className = 'tag';
+  tag.textContent = layout.tag + ' · #8B9AE8 / 中性槽';
+  shell.appendChild(tag);
+
+  phone.appendChild(shell);
+
+  const cap = document.createElement('div');
+  cap.className = 'caption';
+  cap.textContent = layout.label + ' · 静帧草案（未合 defaults）';
+  phone.appendChild(cap);
+
+  return phone;
+}
+
+const params = new URLSearchParams(location.search);
+const only = params.get('v'); // blue | red | green
+const exportOne = params.get('export') === '1';
+
+if (exportOne) document.body.classList.add('export-one');
+
+for (const [fam, layout] of Object.entries(LAYOUTS)) {
+  if (only && only !== fam) continue;
+  const phone = renderPhone(fam, layout);
+  if (only === fam || (!only && exportOne && fam === 'blue')) phone.classList.add('active');
+  if (exportOne) phone.classList.add('active');
+  document.body.appendChild(phone);
+}
+
+if (exportOne && only) {
+  document.querySelectorAll('.phone').forEach(p => {
+    if (p.dataset.v === only) p.classList.add('active');
+    else p.classList.remove('active');
+  });
+}
+</script>
+</body>
+</html>
