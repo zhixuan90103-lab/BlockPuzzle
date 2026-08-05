@@ -12,7 +12,6 @@ import {
   readSafeAreaInsets,
 } from '../viewport.js';
 import {
-  COLOR,
   FEEL_CLEAR_MS,
   FEEL_CLEAR_STAGGER,
   FEEL_DEATH_FLASH_MS,
@@ -68,6 +67,7 @@ import {
   rubberScrollX,
   trayScrollLimits,
 } from './tray-layout.js';
+import { applyBgTuneCss, bgHex } from './bg-tune.js';
 import { applyHudTuneCss } from './hud-tune.js';
 import { getTune } from './tune.js';
 import { createBoardView } from './view.js';
@@ -86,7 +86,8 @@ export function createGame(opts) {
   const frameEl = document.getElementById('phone-frame');
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(COLOR.bg);
+  scene.background = new THREE.Color(bgHex());
+  applyBgTuneCss(frameEl);
 
   const frame0 = getFrameSize();
   const camera = new THREE.OrthographicCamera(
@@ -1492,7 +1493,7 @@ export function createGame(opts) {
     const t = /** @type {Element | null} */ (e.target instanceof Element ? e.target : null);
     if (
       t?.closest?.(
-        '#feel-panel, .feel-panel, #hud-panel, .hud-panel, #tray-dock-panel, .tray-dock-panel, #board-panel, .board-panel, #piece-panel, .piece-panel, button, input, textarea, select, label, a',
+        '#feel-panel, .feel-panel, #hud-panel, .hud-panel, #tray-dock-panel, .tray-dock-panel, #board-panel, .board-panel, #piece-panel, .piece-panel, #bg-panel, .bg-panel, button, input, textarea, select, label, a',
       )
     ) {
       return;
@@ -1959,6 +1960,12 @@ export function createGame(opts) {
     paint();
   }
 
+  /** 背景色：场景 + CSS 壳 */
+  function applyBgStyle() {
+    scene.background = new THREE.Color(bgHex());
+    applyBgTuneCss(frameEl);
+  }
+
   // init
   if (editorMode) {
     puzzleLevel = editorLevel;
@@ -2065,6 +2072,7 @@ export function createGame(opts) {
     applyTune,
     applyScoreUi,
     applyPieceStyle,
+    applyBgStyle,
     restart,
     dispose() {
       running = false;

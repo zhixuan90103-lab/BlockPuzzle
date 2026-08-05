@@ -18,26 +18,19 @@ export function createDefaultTrayDockTune() {
     DOCK_W_EXTRA_CELLS: 1.5,
     /** 圆角强度 0~0.5（相对短边） */
     DOCK_CORNER: 0.05,
-    /** 不透明度 0~1 */
-    DOCK_OPACITY: 0.2,
-    /** 垂直偏移 px（frame，+ 下移） */
+    DOCK_OPACITY: 0.22,
     DOCK_Y_NUDGE_PX: 0,
-    /** 水平偏移 px（frame，+ 右移） */
     DOCK_X_NUDGE_PX: 0,
-    /** 底板投影不透明度 */
-    DOCK_SHADOW_OPACITY: 0.18,
-    /** 底板投影相对外扩（× 短边） */
-    DOCK_SHADOW_SPREAD: 0,
-    /** 底板投影下移 px */
-    DOCK_SHADOW_Y_PX: 0,
-    /** 底色 RGB（黑 + 低透明） */
-    DOCK_COLOR_R: 0,
-    DOCK_COLOR_G: 0,
-    DOCK_COLOR_B: 0,
-    /** 阴影 RGB */
-    DOCK_SHADOW_R: 58,
-    DOCK_SHADOW_G: 85,
-    DOCK_SHADOW_B: 100,
+    DOCK_SHADOW_OPACITY: 0.2,
+    DOCK_SHADOW_SPREAD: 0.02,
+    DOCK_SHADOW_Y_PX: 3,
+    /** 深紫托，衬糖果块 */
+    DOCK_COLOR_R: 40,
+    DOCK_COLOR_G: 34,
+    DOCK_COLOR_B: 72,
+    DOCK_SHADOW_R: 16,
+    DOCK_SHADOW_G: 12,
+    DOCK_SHADOW_B: 32,
   };
 }
 

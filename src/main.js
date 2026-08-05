@@ -7,6 +7,7 @@ import { createRenderer } from './create-renderer.js';
 import { createFeelPanel } from './feel-panel.js';
 import { createGame } from './game/game.js';
 import { createNativeHaptics } from './native-haptics.js';
+import { createBgPanel } from './bg-panel.js';
 import { createBoardPanel } from './board-panel.js';
 import { createHudPanel } from './hud-panel.js';
 import { createPiecePanel } from './piece-panel.js';
@@ -108,6 +109,14 @@ async function boot() {
     },
   });
 
+  // 独立背景色调参
+  const bgPanel = createBgPanel({
+    mount: frameEl,
+    onChange: () => {
+      game.applyBgStyle?.();
+    },
+  });
+
   if (haptics.isNativeIos()) {
     await haptics.prepare();
   }
@@ -123,6 +132,7 @@ async function boot() {
       trayDockPanel,
       boardPanel,
       piecePanel,
+      bgPanel,
     };
   }
 }

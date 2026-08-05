@@ -4,9 +4,9 @@
   /* Design phone (logical points). Keep in sync with src/viewport.js */
   --design-w: 393;
   --design-h: 852;
-  /* 天蓝清爽 */
-  --letterbox-bg: #3a9ed0;
-  --frame-bg: #6ec4f0;
+  /* 参考紫壳 */
+  --letterbox-bg: #584a96;
+  --frame-bg: #7b6bc4;
   --frame-radius: 28px;
   --wood-light: #8ec5f0;
   --wood-mid: #6ec4f0;
@@ -268,11 +268,10 @@ header {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--hud-label);
-  /* 轻投影：低透明 + 小模糊 */
+  color: var(--hud-label, rgba(255, 255, 255, 0.92));
   text-shadow:
-    0 1px 0 rgba(30, 90, 130, 0.18),
-    0 1px 3px rgba(20, 70, 110, 0.16);
+    0 1px 0 rgba(40, 80, 120, 0.2),
+    0 2px 6px rgba(30, 60, 100, 0.18);
   line-height: 1.15;
 }
 
@@ -281,12 +280,12 @@ header {
   font-size: var(--hud-value-font, var(--ui-score-font, 50px));
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--hud-value);
+  color: var(--hud-value, #ffffff);
   font-variant-numeric: tabular-nums;
   text-shadow:
-    0 1px 0 rgba(30, 90, 130, 0.2),
-    0 2px 4px rgba(20, 70, 110, 0.16),
-    0 3px 8px rgba(15, 50, 80, 0.12);
+    0 1px 0 rgba(40, 80, 120, 0.22),
+    0 2px 6px rgba(30, 60, 100, 0.18),
+    0 4px 12px rgba(20, 50, 90, 0.12);
   line-height: 1.05;
 }
 
@@ -1537,5 +1536,172 @@ button:active {
 
 .piece-panel.is-collapsed .piece-panel-sheet,
 .piece-panel.is-collapsed .piece-panel-scrim {
+  display: none;
+}
+
+/* —— Bg 背景色独立调参 —— */
+.bg-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 48;
+  pointer-events: none;
+}
+
+.bg-panel-fab {
+  pointer-events: auto;
+  position: absolute;
+  left: max(10px, calc(var(--safe-left, 0px) + 10px));
+  bottom: max(188px, calc(var(--safe-bottom, 0px) + 188px));
+  z-index: 5;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2f6f96;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 12px rgba(40, 110, 150, 0.2);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.bg-panel-fab:active {
+  transform: scale(0.96);
+}
+
+.bg-panel-scrim {
+  pointer-events: auto;
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(20, 60, 90, 0.28);
+  cursor: pointer;
+}
+
+.bg-panel-sheet {
+  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(48%, 420px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  background: #f7fafc;
+  box-shadow: 0 -8px 32px rgba(20, 60, 90, 0.22);
+  padding-bottom: max(10px, var(--safe-bottom, 0px));
+  color: #1e3a4a;
+}
+
+.bg-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(30, 80, 110, 0.1);
+  flex-shrink: 0;
+}
+
+.bg-panel-title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.bg-panel-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bg-panel-btn {
+  appearance: none;
+  border: 1px solid rgba(30, 80, 110, 0.18);
+  background: #fff;
+  color: #2f6f96;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.bg-panel-btn-primary {
+  background: #3d9fd4;
+  border-color: transparent;
+  color: #fff;
+}
+
+.bg-panel-body {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 14px 16px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.bg-panel-group {
+  margin-top: 10px;
+}
+
+.bg-panel-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(30, 80, 110, 0.55);
+  margin-bottom: 6px;
+}
+
+.bg-panel-row {
+  margin-bottom: 10px;
+}
+
+.bg-panel-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.bg-panel-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #234556;
+}
+
+.bg-panel-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3d9fd4;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.bg-panel-range {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: #3d9fd4;
+  touch-action: none;
+}
+
+.bg-panel-preview {
+  margin-top: 12px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(30, 80, 110, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.bg-panel.is-collapsed .bg-panel-sheet,
+.bg-panel.is-collapsed .bg-panel-scrim {
   display: none;
 }

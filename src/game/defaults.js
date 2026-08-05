@@ -589,43 +589,45 @@ export const TRAY_LIFT_SNAP_MS = 60;
 /** 惯性速度钳制（px/s，不是 px/ms） */
 export const TRAY_FLING_MAX_V = 1100;
 
-// —— 视觉：天蓝清爽（style-mockups batch14 / 选定稿）——
+// —— 视觉：参考紫壳 + 深紫盘井 + 高饱和糖果块 ——
 export const COLOR = {
-  /** 天空蓝桌面 */
-  bg: 0x6ec4f0,
-  bgDeep: 0x5ab4e6,
-  /** 棋盘白底卡片 */
-  boardFill: 0xf4f6f8,
-  boardFrame: 0xffffff,
-  boardFrameDark: 0xe8ecef,
+  /** 中紫壳 */
+  bg: 0x7b6bc4,
+  bgDeep: 0x584a96,
+  /** 盘托：深蓝紫 */
+  boardFill: 0x2a2450,
+  boardFrame: 0x3a3468,
+  boardFrameDark: 0x1e1a3c,
   /**
-   * 空格：中灰扁平（与彩块对比更清楚）
+   * 空格：深紫井（亮块压上去很清晰）
    */
-  cellEmpty: 0xa8b0ba,
-  cellEmptyStroke: 0x96a0ac,
-  cellEmptyInner: 0xa8b0ba,
-  /** tray 区浅底 */
+  cellEmpty: 0x2c2658,
+  cellEmptyStroke: 0x1e1840,
+  cellEmptyInner: 0x342e62,
+  /** tray */
   traySlot: 0xffffff,
-  traySlotStroke: 0xe8ecef,
+  traySlotStroke: 0xd8d0f0,
   /** 预亮 */
-  preclear: 0xffe566,
+  preclear: 0xffe066,
   /** UI */
-  accent: 0xff8a7a,
+  accent: 0xff6bcb,
   text: 0xffffff,
 };
 
-/** 清爽糖果色：天蓝 / 薄荷 / 珊瑚 / 黄油 */
+/**
+ * 摆放物：糖果高饱和（黄/绿/红/紫/橙/青/蓝/粉）
+ */
 export const PIECE_PALETTE = [
-  0x7eb6e8, // soft sky blue
-  0x7dcfb6, // mint
-  0xf08a7a, // coral
-  0xf5d76e, // butter yellow
-  0x6bb8e8, // light azure
-  0x6fc4a8, // teal mint
-  0xff9a8b, // soft coral
-  0xffe08a, // pale gold
-  0x8ec5f0, // powder blue
-  0x88d4bc, // seafoam
+  0xffcc22, // yellow
+  0x3ddc64, // green
+  0xff3b4a, // red
+  0xc44dff, // purple
+  0xff9a1a, // orange
+  0x4dc4ff, // cyan
+  0x4d7aff, // blue
+  0xff4db8, // pink/magenta
+  0xffe066, // light yellow
+  0x6bff9a, // light green
 ];
 
 /** 调试状态默认隐藏（?debug=1 显示） */

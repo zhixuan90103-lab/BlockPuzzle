@@ -19,30 +19,30 @@ export function createDefaultBoardTune() {
     BOARD_FRAME_PAD_CELLS: 0.2,
     /** 盘面内底相对 8×8 再外扩（× cell） */
     BOARD_INNER_PAD_CELLS: 0.02,
-    /** 空格灰阶 0=浅 … 1=深（映射到 stroke/fill） */
-    BOARD_EMPTY_DARK: 0.3,
+    /** 空格：深紫井 */
+    BOARD_EMPTY_DARK: 0.55,
     /** 空格不透明度 */
-    BOARD_EMPTY_OPACITY: 0.8,
+    BOARD_EMPTY_OPACITY: 1,
     /** 棋盘底板阴影透明度 */
-    BOARD_SHADOW_OPACITY: 0.2,
+    BOARD_SHADOW_OPACITY: 0.3,
     /** 阴影扩散（× 盘边长） */
-    BOARD_SHADOW_SPREAD: 0.005,
+    BOARD_SHADOW_SPREAD: 0.012,
     /** 阴影下移 px */
-    BOARD_SHADOW_Y_PX: 5,
+    BOARD_SHADOW_Y_PX: 6,
     /** 圆角相对格边 */
-    BOARD_CELL_CORNER: 0.1,
-    /** 白框 RGB */
-    BOARD_FRAME_R: 255,
-    BOARD_FRAME_G: 255,
-    BOARD_FRAME_B: 255,
-    /** 内底 RGB */
-    BOARD_FILL_R: 244,
-    BOARD_FILL_G: 246,
-    BOARD_FILL_B: 248,
+    BOARD_CELL_CORNER: 0.12,
+    /** 盘框 RGB — 深紫边 */
+    BOARD_FRAME_R: 58,
+    BOARD_FRAME_G: 52,
+    BOARD_FRAME_B: 104,
+    /** 内底 RGB — 深蓝紫盘 */
+    BOARD_FILL_R: 42,
+    BOARD_FILL_G: 36,
+    BOARD_FILL_B: 80,
     /** 棋盘阴影 RGB */
-    BOARD_SHADOW_R: 58,
-    BOARD_SHADOW_G: 85,
-    BOARD_SHADOW_B: 104,
+    BOARD_SHADOW_R: 20,
+    BOARD_SHADOW_G: 16,
+    BOARD_SHADOW_B: 40,
   };
 }
 
@@ -112,22 +112,26 @@ export function onBoardTuneChange(fn) {
   return () => listeners.delete(fn);
 }
 
-/** 空格灰 → hex 三色 */
+/** 空格：深紫井（浅紫灰 ↔ 更深紫，对齐参考糖果盘） */
 export function boardEmptyColors() {
   const d = Math.max(0, Math.min(1, state.BOARD_EMPTY_DARK));
-  // 浅 ~ #d0d5dc  深 ~ #7a8490
-  const light = { r: 0xd0, g: 0xd5, b: 0xdc };
-  const dark = { r: 0x7a, g: 0x84, b: 0x90 };
+  // 浅 ~ #3a3468  深 ~ #1a1638
+  const light = { r: 0x3a, g: 0x34, b: 0x68 };
+  const dark = { r: 0x1a, g: 0x16, b: 0x38 };
   const mix = (a, b) => Math.round(a + (b - a) * d);
   const r = mix(light.r, dark.r);
   const g = mix(light.g, dark.g);
   const b = mix(light.b, dark.b);
   const fill = (r << 16) | (g << 8) | b;
-  const strokeR = Math.max(0, r - 14);
-  const strokeG = Math.max(0, g - 12);
-  const strokeB = Math.max(0, b - 10);
+  const strokeR = Math.max(0, r - 10);
+  const strokeG = Math.max(0, g - 8);
+  const strokeB = Math.max(0, b - 12);
   const stroke = (strokeR << 16) | (strokeG << 8) | strokeB;
-  return { stroke, fill, inner: fill };
+  const innerR = Math.min(255, r + 8);
+  const innerG = Math.min(255, g + 8);
+  const innerB = Math.min(255, b + 12);
+  const inner = (innerR << 16) | (innerG << 8) | innerB;
+  return { stroke, fill, inner };
 }
 
 export const BOARD_TUNE_FIELDS = [

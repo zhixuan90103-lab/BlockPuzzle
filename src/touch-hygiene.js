@@ -29,6 +29,8 @@ function isUiChrome(target) {
       '#board-panel',
       '.piece-panel',
       '#piece-panel',
+      '.bg-panel',
+      '#bg-panel',
       '[data-level-editor]',
       '[data-restart]',
     ].join(', '),
